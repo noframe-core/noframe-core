@@ -3,31 +3,25 @@
 pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../dependencies/PrismaOwnable.sol";
 import "../dependencies/SystemStart.sol";
 import "../dependencies/PrismaMath.sol";
-import "../interfaces/IDebtToken.sol";
 import "../interfaces/ITreasury.sol";
+import "./BaseNoFrame.sol";
 
 /**
-    @title Prisma Stability Pool
+    @title NoFrame Stability Pool
     @notice Based on Liquity's `StabilityPool`
             https://github.com/liquity/dev/blob/main/packages/contracts/contracts/StabilityPool.sol
 
-            Prisma's implementation is modified to support multiple collaterals. Deposits into
+            NoFrame's implementation is modified to support multiple collaterals. Deposits into
             the stability pool may be used to liquidate any supported collateral type.
  */
-contract StabilityPool is PrismaOwnable, SystemStart {
+contract StabilityPool is BaseNoFrame, SystemStart {
     uint256 public constant DECIMAL_PRECISION = 1e18;
     uint128 public constant SUNSET_DURATION = 180 days;
     uint256 constant REWARD_DURATION = 1 weeks;
 
     uint256 public constant emissionId = 0;
-
-    IDebtToken public immutable debtToken;
-    IPrismaTreasury public immutable treasury;
-    address public immutable factory;
-    address public immutable liquidationManager;
 
     uint128 public rewardRate;
     uint32 public lastUpdate;
@@ -78,15 +72,15 @@ contract StabilityPool is PrismaOwnable, SystemStart {
     mapping(uint128 => mapping(uint128 => uint256[256])) public epochToScaleToSums;
 
     /*
-     * Similarly, the sum 'G' is used to calculate Prisma gains. During it's lifetime, each deposit d_t earns a Prisma gain of
+     * Similarly, the sum 'G' is used to calculate NoFrame gains. During it's lifetime, each deposit d_t earns a NoFrame gain of
      *  ( d_t * [G - G_t] )/P_t, where G_t is the depositor's snapshot of G taken at time t when  the deposit was made.
      *
-     *  Prisma reward events occur are triggered by depositor operations (new deposit, topup, withdrawal), and liquidations.
-     *  In each case, the Prisma reward is issued (i.e. G is updated), before other state changes are made.
+     *  NoFrame reward events occur are triggered by depositor operations (new deposit, topup, withdrawal), and liquidations.
+     *  In each case, the NoFrame reward is issued (i.e. G is updated), before other state changes are made.
      */
     mapping(uint128 => mapping(uint128 => uint256)) public epochToScaleToG;
 
-    // Error tracker for the error correction in the Prisma issuance calculation
+    // Error tracker for the error correction in the NoFrame issuance calculation
     uint256 public lastPrismaError;
     // Error trackers for the error correction in the offset calculation
     uint256 public lastCollateralError_Offset;
@@ -128,21 +122,13 @@ contract StabilityPool is PrismaOwnable, SystemStart {
     event RewardClaimed(address indexed account, address indexed recipient, uint256 claimed);
 
     constructor(
-        address _prismaCore,
-        IDebtToken _debtTokenAddress,
-        IPrismaTreasury _treasury,
-        address _factory,
-        address _liquidationManager
-    ) PrismaOwnable(_prismaCore) SystemStart(_prismaCore) {
-        debtToken = _debtTokenAddress;
-        treasury = _treasury;
-        factory = _factory;
-        liquidationManager = _liquidationManager;
+        address _addressProvider
+    ) BaseNoFrame(_addressProvider) SystemStart(_addressProvider) {
         periodFinish = uint32(block.timestamp - 1);
     }
 
     function enableCollateral(IERC20 _collateral) external {
-        require(msg.sender == factory, "Not factory");
+        require(msg.sender == factory(), "Not factory");
         uint256 length = collateralTokens.length;
         for (uint256 i = 0; i < length; i++) {
             require(collateralTokens[i] != _collateral, "Collateral already in use");
@@ -183,7 +169,7 @@ contract StabilityPool is PrismaOwnable, SystemStart {
     }
 
     function startCollateralSunset(IERC20 collateral) external {
-        require(msg.sender == address(PRISMA_CORE), "Not prisma core");
+        require(msg.sender == address(addressProvider), "Not NoFrame core");
         _sunsetIndexes[queue.nextSunsetIndexKey++] = SunsetIndex(
             uint128(indexByCollateral[collateral] - 1),
             uint128(block.timestamp + SUNSET_DURATION)
@@ -199,14 +185,14 @@ contract StabilityPool is PrismaOwnable, SystemStart {
 
     /*  provideToSP():
      *
-     * - Triggers a Prisma issuance, based on time passed since the last issuance. The Prisma issuance is shared between *all* depositors and front ends
+     * - Triggers a NoFrame issuance, based on time passed since the last issuance. The NoFrame issuance is shared between *all* depositors and front ends
      * - Tags the deposit with the provided front end tag param, if it's a new deposit
-     * - Sends depositor's accumulated gains (Prisma, collateral) to depositor
-     * - Sends the tagged front end's accumulated Prisma gains to the tagged front end
+     * - Sends depositor's accumulated gains (NoFrame, collateral) to depositor
+     * - Sends the tagged front end's accumulated NoFrame gains to the tagged front end
      * - Increases deposit and tagged front end's stake, and takes new snapshots for each.
      */
     function provideToSP(uint256 _amount) external {
-        require(!PRISMA_CORE.paused(), "Deposits are paused");
+        require(!addressProvider.paused(), "Deposits are paused");
         require(_amount > 0, "StabilityPool: Amount must be non-zero");
 
         _triggerRewardIssuance();
@@ -218,7 +204,7 @@ contract StabilityPool is PrismaOwnable, SystemStart {
         // First pay out any rewardToken gains
         _accrueRewards(msg.sender);
 
-        debtToken.sendToSP(msg.sender, _amount);
+        stablecoin().sendToSP(msg.sender, _amount);
         uint256 newTotalDebtTokenDeposits = totalDebtTokenDeposits + _amount;
         totalDebtTokenDeposits = newTotalDebtTokenDeposits;
         emit StabilityPoolDebtBalanceUpdated(newTotalDebtTokenDeposits);
@@ -230,10 +216,10 @@ contract StabilityPool is PrismaOwnable, SystemStart {
 
     /*  withdrawFromSP():
      *
-     * - Triggers a Prisma issuance, based on time passed since the last issuance. The Prisma issuance is shared between *all* depositors and front ends
+     * - Triggers a NoFrame issuance, based on time passed since the last issuance. The NoFrame issuance is shared between *all* depositors and front ends
      * - Removes the deposit's front end tag if it is a full withdrawal
-     * - Sends all depositor's accumulated gains (Prisma, collateral) to depositor
-     * - Sends the tagged front end's accumulated Prisma gains to the tagged front end
+     * - Sends all depositor's accumulated gains (NoFrame, collateral) to depositor
+     * - Sends the tagged front end's accumulated NoFrame gains to the tagged front end
      * - Decreases deposit and tagged front end's stake, and takes new snapshots for each.
      *
      * If _amount > userDeposit, the user withdraws all of their compounded deposit.
@@ -253,7 +239,7 @@ contract StabilityPool is PrismaOwnable, SystemStart {
         _accrueRewards(msg.sender);
 
         if (debtToWithdraw > 0) {
-            debtToken.returnFromPool(address(this), msg.sender, debtToWithdraw);
+            stablecoin().returnFromPool(address(this), msg.sender, debtToWithdraw);
             _decreaseDebt(debtToWithdraw);
         }
 
@@ -263,7 +249,7 @@ contract StabilityPool is PrismaOwnable, SystemStart {
         emit UserDepositChanged(msg.sender, newDeposit);
     }
 
-    // --- Prisma issuance functions ---
+    // --- NoFrame issuance functions ---
 
     function _triggerRewardIssuance() internal {
         uint256 issuance = _vestedEmissions();
@@ -273,7 +259,7 @@ contract StabilityPool is PrismaOwnable, SystemStart {
         uint256 lastUpdateWeek = (_periodFinish - startTime) / 1 weeks;
         // If the last claim was a week earlier we reclaim
         if (getWeek() >= lastUpdateWeek) {
-            uint256 amount = treasury.allocateNewEmissions(emissionId);
+            uint256 amount = treasury().allocateNewEmissions(emissionId);
             if (amount > 0) {
                 // If the previous period is not finished we combine new and pending old rewards
                 if (block.timestamp < _periodFinish) {
@@ -300,7 +286,7 @@ contract StabilityPool is PrismaOwnable, SystemStart {
     function _updateG(uint256 _prismaIssuance) internal {
         uint256 totalDebt = totalDebtTokenDeposits; // cached to save an SLOAD
         /*
-         * When total deposits is 0, G is not updated. In this case, the Prisma issued can not be obtained by later
+         * When total deposits is 0, G is not updated. In this case, the NoFrame issued can not be obtained by later
          * depositors - it is missed out on, and remains in the balanceof the CommunityIssuance contract.
          *
          */
@@ -322,7 +308,7 @@ contract StabilityPool is PrismaOwnable, SystemStart {
         uint256 _totalDebtTokenDeposits
     ) internal returns (uint256) {
         /*
-         * Calculate the Prisma-per-unit staked.  Division uses a "feedback" error correction, to keep the
+         * Calculate the NoFrame-per-unit staked.  Division uses a "feedback" error correction, to keep the
          * cumulative error low in the running total G:
          *
          * 1) Form a numerator which compensates for the floor division error that occurred the last time this
@@ -350,7 +336,7 @@ contract StabilityPool is PrismaOwnable, SystemStart {
     }
 
     function _offset(IERC20 collateral, uint256 _debtToOffset, uint256 _collToAdd) internal {
-        require(msg.sender == liquidationManager, "StabilityPool: Caller is not Liquidation Manager");
+        require(msg.sender == address(liquidationManager()), "StabilityPool: Caller is not Liquidation Manager");
         uint256 idx = indexByCollateral[collateral];
         idx -= 1;
 
@@ -530,8 +516,8 @@ contract StabilityPool is PrismaOwnable, SystemStart {
     }
 
     /*
-     * Calculate the Prisma gain earned by a deposit since its last snapshots were taken.
-     * Given by the formula:  Prisma = d0 * (G - G(0))/P(0)
+     * Calculate the NoFrame gain earned by a deposit since its last snapshots were taken.
+     * Given by the formula:  NoFrame = d0 * (G - G(0))/P(0)
      * where G(0) and P(0) are the depositor's snapshots of the sum G and product P, respectively.
      * d0 is the last recorded deposit value.
      */
@@ -578,8 +564,8 @@ contract StabilityPool is PrismaOwnable, SystemStart {
         Snapshots memory snapshots
     ) internal view returns (uint256) {
         /*
-         * Grab the sum 'G' from the epoch at which the stake was made. The Prisma gain may span up to one scale change.
-         * If it does, the second portion of the Prisma gain is scaled by 1e9.
+         * Grab the sum 'G' from the epoch at which the stake was made. The NoFrame gain may span up to one scale change.
+         * If it does, the second portion of the NoFrame gain is scaled by 1e9.
          * If the gain spans no scale change, the second portion will be 0.
          */
         uint128 epochSnapshot = snapshots.epoch;
@@ -659,7 +645,7 @@ contract StabilityPool is PrismaOwnable, SystemStart {
         return compoundedStake;
     }
 
-    // --- Sender functions for Debt deposit, collateral gains and Prisma gains ---
+    // --- Sender functions for Debt deposit, collateral gains and NoFrame gains ---
     function claimCollateralGains(address recipient, uint256[] calldata collateralIndexes) external virtual {
         _claimCollateralGains(recipient, collateralIndexes);
     }
@@ -737,14 +723,14 @@ contract StabilityPool is PrismaOwnable, SystemStart {
     function claimReward(address recipient) external returns (uint256 amount) {
         amount = _claimReward(msg.sender);
         if (amount > 0) {
-            treasury.transferAllocatedTokens(msg.sender, recipient, amount);
+            treasury().transferAllocatedTokens(msg.sender, recipient, amount);
         }
         emit RewardClaimed(msg.sender, recipient, amount);
         return amount;
     }
 
     function treasuryClaimReward(address claimant, address) external returns (uint256 amount) {
-        require(msg.sender == address(treasury));
+        require(msg.sender == address(treasury()));
 
         return _claimReward(claimant);
     }

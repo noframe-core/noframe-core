@@ -5,7 +5,6 @@ pragma solidity 0.8.20;
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "../../interfaces/ICurveProxy.sol";
 import "../../interfaces/ITreasury.sol";
-import "../../dependencies/PrismaOwnable.sol";
 
 interface IBooster {
     function deposit(uint256 _pid, uint256 _amount, bool _stake) external returns (bool);
@@ -25,19 +24,19 @@ interface IBaseRewardPool {
 }
 
 /**
-    @title Prisma Convex Deposit Wrapper
+    @title NoFrame Convex Deposit Wrapper
     @notice Standard ERC20 interface around a deposit of a Curve LP token into Convex.
             Tokens are minted by depositing Curve LP tokens, and burned to receive the LP
-            tokens back. Holders may claim PRISMA emissions on top of the earned CRV and CVX.
+            tokens back. Holders may claim GOVTOKEN emissions on top of the earned CRV and CVX.
  */
 contract ConvexDepositToken {
-    IERC20 public immutable PRISMA;
+    IERC20 public immutable GOVTOKEN;
     IERC20 public immutable CRV;
     IERC20 public immutable CVX;
 
     IBooster public immutable booster;
     ICurveProxy public immutable curveProxy;
-    IPrismaTreasury public immutable treasury;
+    ITreasury public immutable treasury;
 
     IERC20 public lpToken;
     uint256 public depositPid;
@@ -53,7 +52,7 @@ contract ConvexDepositToken {
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
 
-    // each array relates to [PRISMA, CRV, CVX]
+    // each array relates to [GOVTOKEN, CRV, CVX]
     uint256[3] public rewardIntegral;
     uint128[3] public rewardRate;
 
@@ -82,9 +81,9 @@ contract ConvexDepositToken {
         IERC20 _CVX,
         IBooster _booster,
         ICurveProxy _proxy,
-        IPrismaTreasury _treasury
+        ITreasury _treasury
     ) {
-        PRISMA = _prisma;
+        GOVTOKEN = _prisma;
         CRV = _CRV;
         CVX = _CVX;
         booster = _booster;
@@ -105,8 +104,8 @@ contract ConvexDepositToken {
         IERC20(_lpToken).approve(address(booster), type(uint256).max);
 
         string memory _symbol = IERC20Metadata(_lpToken).symbol();
-        name = string.concat("Prisma ", _symbol, " Convex Deposit");
-        symbol = string.concat("prisma-", _symbol);
+        name = string.concat("NoFrame ", _symbol, " Convex Deposit");
+        symbol = string.concat("NoFrame-", _symbol);
 
         periodFinish = uint32(block.timestamp - 1);
     }

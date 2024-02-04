@@ -21,13 +21,13 @@ pragma solidity 0.8.20;
  * Please see the implementation spec in the proof document, which closely follows on from the compounded deposit / collateral gain derivations:
  * https://github.com/liquity/liquity/blob/master/papers/Scalable_Reward_Distribution_with_Compounding_Stakes.pdf
  *
- * --- Prisma ISSUANCE TO STABILITY POOL DEPOSITORS ---
+ * --- NoFrame ISSUANCE TO STABILITY POOL DEPOSITORS ---
  *
- * An Prisma issuance event occurs at every deposit operation, and every liquidation.
+ * An NoFrame issuance event occurs at every deposit operation, and every liquidation.
  *
  * Each deposit is tagged with the address of the front end through which it was made.
  *
- * All deposits earn a share of the issued Prisma in proportion to the deposit as a share of total deposits. The Prisma earned
+ * All deposits earn a share of the issued NoFrame in proportion to the deposit as a share of total deposits. The NoFrame earned
  * by a given deposit, is split between the depositor and the front end through which the deposit was made, based on the front end's kickbackRate.
  *
  * Please see the system Readme for an overview:
@@ -42,9 +42,9 @@ interface IStabilityPool {
      * - Sender is not a registered frontend
      * - _amount is not zero
      * ---
-     * - Triggers a Prisma issuance, based on time passed since the last issuance. The Prisma issuance is shared between *all* depositors
+     * - Triggers a NoFrame issuance, based on time passed since the last issuance. The NoFrame issuance is shared between *all* depositors
      * - Tags the deposit with the provided front end tag param, if it's a new deposit
-     * - Accrue depositor's accumulated gains (Prisma, collateral)
+     * - Accrue depositor's accumulated gains (NoFrame, collateral)
      * - Increases deposit's stake, and takes a new snapshot.
      */
     function provideToSP(uint _amount) external;
@@ -54,8 +54,8 @@ interface IStabilityPool {
      * - _amount is zero or there are no under collateralized troves left in the system
      * - User has a non zero deposit
      * ---
-     * - Triggers a Prisma issuance, based on time passed since the last issuance. The Prisma issuance is shared between *all* depositors and front ends
-     * - Accrue all depositor's accumulated gains (Prisma, collateral)
+     * - Triggers a NoFrame issuance, based on time passed since the last issuance. The NoFrame issuance is shared between *all* depositors and front ends
+     * - Accrue all depositor's accumulated gains (NoFrame, collateral)
      * - Decreases deposit's stake, and takes a new snapshot.
      *
      * If _amount > userDeposit, the user withdraws all of their compounded deposit.
@@ -82,7 +82,7 @@ interface IStabilityPool {
     function getDepositorCollateralGain(address _depositor) external view returns (uint[] memory collateralGains);
 
     /*
-     * Calculate the Prisma gain earned by a deposit since its last snapshots were taken.
+     * Calculate the NoFrame gain earned by a deposit since its last snapshots were taken.
      */
     function getDepositorPrismaGain(address _depositor) external view returns (uint);
 

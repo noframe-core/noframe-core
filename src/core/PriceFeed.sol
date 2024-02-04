@@ -5,19 +5,20 @@ pragma solidity 0.8.20;
 import "../interfaces/ITellorCaller.sol";
 import "../interfaces/IAggregatorV3Interface.sol";
 import "../dependencies/PrismaMath.sol";
-import "../dependencies/PrismaOwnable.sol";
+import "./AddressProvider.sol";
+import "./BaseNoFrame.sol";
 
 /**
-    @title Prisma Default Price Feed
+    @title NoFrame Default Price Feed
     @notice Based on Liquity's PriceFeed:
             https://github.com/liquity/dev/blob/main/packages/contracts/contracts/PriceFeed.sol
 
-            Prisma's implementation additionally multiplies the oracle price by the underlying
+            NoFrame's implementation additionally multiplies the oracle price by the underlying
             collateral's share price. This is sufficient for pricing the most dominant LSTs at
             the time of writing this contract (wstETH, rETH). In some cases this approach may
             be insufficient and so a custom oracle may be required.
  */
-contract PriceFeed is PrismaOwnable {
+contract PriceFeed is BaseNoFrame {
     IAggregatorV3Interface public immutable priceAggregator; // Mainnet Chainlink aggregator
     ITellorCaller public immutable tellorCaller; // Wrapper contract that calls the Tellor system
 
@@ -45,7 +46,7 @@ contract PriceFeed is PrismaOwnable {
      */
     uint256 public constant MAX_PRICE_DIFFERENCE_BETWEEN_ORACLES = 5e16; // 5%
 
-    // The last good price seen from an oracle by Prisma
+    // The last good price seen from an oracle by NoFrame
     uint128 public lastGoodPrice;
     uint80 public chainlinkLatestRound;
     uint32 public lastUpdated;
@@ -88,10 +89,10 @@ contract PriceFeed is PrismaOwnable {
     event SharePriceDataSet(address collateral);
 
     constructor(
-        address _prismaCore,
+        address _addressProvider,
         address _priceAggregatorAddress,
         address _tellorCallerAddress
-    ) PrismaOwnable(_prismaCore) {
+    ) BaseNoFrame(_addressProvider) {
         priceAggregator = IAggregatorV3Interface(_priceAggregatorAddress);
         tellorCaller = ITellorCaller(_tellorCallerAddress);
 
@@ -100,12 +101,12 @@ contract PriceFeed is PrismaOwnable {
 
         // Get an initial price from Chainlink to serve as first reference for lastGoodPrice
         ChainlinkResponse memory chainlinkResponse = _getCurrentChainlinkResponse();
-        ChainlinkResponse memory prevChainlinkResponse = _getPrevChainlinkResponse(chainlinkResponse.roundId);
 
-        require(
-            !_chainlinkIsBroken(chainlinkResponse, prevChainlinkResponse) && !_chainlinkIsFrozen(chainlinkResponse),
-            "PriceFeed: Chainlink must be working and current"
-        );
+        //ChainlinkResponse memory prevChainlinkResponse = _getPrevChainlinkResponse(chainlinkResponse.roundId);
+        //require(
+        //    !_chainlinkIsBroken(chainlinkResponse, prevChainlinkResponse) && !_chainlinkIsFrozen(chainlinkResponse),
+        //    "PriceFeed: Chainlink must be working and current"
+        //);
 
         _storeChainlinkPrice(chainlinkResponse);
     }

@@ -6,20 +6,19 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "../../interfaces/ICurveProxy.sol";
 import "../../interfaces/ITreasury.sol";
 import "../../interfaces/ILiquidityGauge.sol";
-import "../../dependencies/PrismaOwnable.sol";
 
 /**
-    @title Prisma Curve Deposit Wrapper
+    @title NoFrame Curve Deposit Wrapper
     @notice Standard ERC20 interface around a deposit of a Curve LP token into it's
             associated gauge. Tokens are minted by depositing Curve LP tokens, and
-            burned to receive the LP tokens back. Holders may claim PRISMA emissions
+            burned to receive the LP tokens back. Holders may claim GOVTOKEN emissions
             on top of the earned CRV.
  */
 contract CurveDepositToken {
-    IERC20 public immutable PRISMA;
+    IERC20 public immutable GOVTOKEN;
     IERC20 public immutable CRV;
     ICurveProxy public immutable curveProxy;
-    IPrismaTreasury public immutable treasury;
+    ITreasury public immutable treasury;
 
     ILiquidityGauge public gauge;
     IERC20 public lpToken;
@@ -34,7 +33,7 @@ contract CurveDepositToken {
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
 
-    // each array relates to [PRISMA, CRV]
+    // each array relates to [GOVTOKEN, CRV]
     uint256[2] public rewardIntegral;
     uint128[2] public rewardRate;
     uint32 public lastUpdate;
@@ -51,8 +50,8 @@ contract CurveDepositToken {
     event LPTokenWithdrawn(address indexed lpToken, address indexed receiver, uint256 amount);
     event RewardClaimed(address indexed receiver, uint256 prismaAmount, uint256 crvAmount);
 
-    constructor(IERC20 _prisma, IERC20 _CRV, ICurveProxy _curveProxy, IPrismaTreasury _treasury) {
-        PRISMA = _prisma;
+    constructor(IERC20 _prisma, IERC20 _CRV, ICurveProxy _curveProxy, ITreasury _treasury) {
+        GOVTOKEN = _prisma;
         CRV = _CRV;
         curveProxy = _curveProxy;
         treasury = _treasury;
@@ -67,8 +66,8 @@ contract CurveDepositToken {
         IERC20(_token).approve(address(gauge), type(uint256).max);
 
         string memory _symbol = IERC20Metadata(_token).symbol();
-        name = string.concat("Prisma ", _symbol, " Curve Deposit");
-        symbol = string.concat("prisma-", _symbol);
+        name = string.concat("NoFrame ", _symbol, " Curve Deposit");
+        symbol = string.concat("NoFrame-", _symbol);
 
         periodFinish = uint32(block.timestamp - 1);
     }

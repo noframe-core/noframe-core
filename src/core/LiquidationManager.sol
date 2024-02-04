@@ -9,9 +9,10 @@ import "../interfaces/IBorrowerOperations.sol";
 import "../interfaces/ITroveManager.sol";
 import "../dependencies/PrismaMath.sol";
 import "../dependencies/PrismaBase.sol";
+import "./BaseNoFrame.sol";
 
 /**
-    @title Prisma Liquidation Manager
+    @title NoFrame Liquidation Manager
     @notice Based on Liquity's `TroveManager`
             https://github.com/liquity/dev/blob/main/packages/contracts/contracts/TroveManager.sol
 
@@ -36,11 +37,8 @@ import "../dependencies/PrismaBase.sol";
                the value of the debt is distributed between stability pool depositors. The remaining
                collateral is left claimable by the trove owner.
  */
-contract LiquidationManager is PrismaBase {
-    IStabilityPool public immutable stabilityPool;
-    IBorrowerOperations public immutable borrowerOperations;
-    address public immutable factory;
-
+contract LiquidationManager is BaseNoFrame, PrismaBase {
+    
     mapping(IERC20 => ITroveManager) internal _trovesContracts;
 
     /*
@@ -99,18 +97,14 @@ contract LiquidationManager is PrismaBase {
     }
 
     constructor(
-        IStabilityPool _stabilityPoolAddress,
-        IBorrowerOperations _borrowerOperations,
-        address _factory,
+        address _addressProvider,
         uint256 _gasCompensation
-    ) PrismaBase(_gasCompensation) {
-        stabilityPool = _stabilityPoolAddress;
-        borrowerOperations = _borrowerOperations;
-        factory = _factory;
+    ) BaseNoFrame(_addressProvider) PrismaBase(_gasCompensation) {
+        //
     }
 
     function enableCollateral(address _troveManager, IERC20 _collateral) external {
-        require(msg.sender == factory, "Not factory");
+        require(msg.sender == address(factory()), "Not factory");
         _trovesContracts[_collateral] = ITroveManager(_troveManager);
     }
 
@@ -144,7 +138,7 @@ contract LiquidationManager is PrismaBase {
         ITroveManager troveManager = _trovesContracts[collateral];
         troveManager.updateBalances();
 
-        IStabilityPool stabilityPoolCached = stabilityPool;
+        IStabilityPool stabilityPoolCached = stabilityPool();
         ISortedTroves sortedTrovesCached = ISortedTroves(troveManager.sortedTroves());
 
         LiquidationValues memory singleLiquidation;
@@ -178,7 +172,7 @@ contract LiquidationManager is PrismaBase {
             }
         }
         if (trovesRemaining > 0 && !sunsetting && troveCount > 1) {
-            (uint entireSystemColl, uint entireSystemDebt) = borrowerOperations.getGlobalSystemBalances();
+            (uint entireSystemColl, uint entireSystemDebt) = borrowerOperations().getGlobalSystemBalances();
             entireSystemColl -= totals.totalCollToSendToSP * price;
             entireSystemDebt -= totals.totalDebtToOffset;
             address nextAccount = sortedTrovesCached.getLast();
@@ -255,7 +249,7 @@ contract LiquidationManager is PrismaBase {
         LiquidationValues memory singleLiquidation;
         LiquidationTotals memory totals;
 
-        IStabilityPool stabilityPoolCached = stabilityPool;
+        IStabilityPool stabilityPoolCached = stabilityPool();
         uint debtInStabPool = stabilityPoolCached.getTotalDebtTokenDeposits();
         uint price = troveManager.fetchPrice();
         bool sunsetting = troveManager.sunsetting();
@@ -287,7 +281,7 @@ contract LiquidationManager is PrismaBase {
 
         if (troveIter < length && troveCount > 1) {
             // second iteration round, if we receive a trove with ICR > MCR and need to track TCR
-            (uint256 entireSystemColl, uint256 entireSystemDebt) = borrowerOperations.getGlobalSystemBalances();
+            (uint256 entireSystemColl, uint256 entireSystemDebt) = borrowerOperations().getGlobalSystemBalances();
             entireSystemColl -= totals.totalCollToSendToSP * price;
             entireSystemDebt -= totals.totalDebtToOffset;
             while (troveIter < length && troveCount > 1) {

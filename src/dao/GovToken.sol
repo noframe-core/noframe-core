@@ -3,17 +3,18 @@
 pragma solidity 0.8.20;
 
 import {IERC20, ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "../core/BaseNoFrame.sol";
 
 /**
-    @title Prisma Governance Token
+    @title NoFrame Governance Token
     @notice Given as an incentive for users of the protocol. Can be locked in `TokenLocker`
-            to receive lock weight, which gives governance power within the Prisma DAO.
+            to receive lock weight, which gives governance power within the NoFrame DAO.
  */
-contract PrismaToken is ERC20 {
+contract GovToken is BaseNoFrame, ERC20 {
     // --- ERC20 Data ---
 
-    string internal constant _NAME = "Prisma Governance Token";
-    string internal constant _SYMBOL = "PRISMA";
+    string internal constant _NAME = "NoFrame Governance Token";
+    string internal constant _SYMBOL = "GOVTOKEN";
     string public constant version = "1";
 
     // --- EIP 2612 Data ---
@@ -31,7 +32,6 @@ contract PrismaToken is ERC20 {
     bytes32 private immutable _HASHED_NAME;
     bytes32 private immutable _HASHED_VERSION;
 
-    address public immutable locker;
     uint256 public immutable maxTotalSupply;
 
     mapping(address => uint256) private _nonces;
@@ -39,11 +39,9 @@ contract PrismaToken is ERC20 {
     // --- Functions ---
 
     constructor(
-        address _treasury,
-        address _layerZeroEndpoint,
-        address _locker,
+        address _addressProvider,
         uint256 __totalSupply
-    ) ERC20(_NAME, _SYMBOL) {
+    ) BaseNoFrame(_addressProvider) ERC20(_NAME, _SYMBOL) {
         bytes32 hashedName = keccak256(bytes(_NAME));
         bytes32 hashedVersion = keccak256(bytes(version));
 
@@ -52,9 +50,11 @@ contract PrismaToken is ERC20 {
         _CACHED_CHAIN_ID = block.chainid;
         _CACHED_DOMAIN_SEPARATOR = _buildDomainSeparator(_TYPE_HASH, hashedName, hashedVersion);
 
-        _mint(_treasury, __totalSupply);
         maxTotalSupply = __totalSupply;
-        locker = _locker;
+    }
+
+    function initMintToTreasury() public onlyOwner {
+        _mint(address(treasury()), maxTotalSupply);
     }
 
     // --- EIP 2612 functionality ---
@@ -76,7 +76,7 @@ contract PrismaToken is ERC20 {
         bytes32 r,
         bytes32 s
     ) external {
-        require(deadline >= block.timestamp, "PRISMA: expired deadline");
+        require(deadline >= block.timestamp, "GOVTOKEN: expired deadline");
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -85,7 +85,7 @@ contract PrismaToken is ERC20 {
             )
         );
         address recoveredAddress = ecrecover(digest, v, r, s);
-        require(recoveredAddress == owner, "PRISMA: invalid signature");
+        require(recoveredAddress == owner, "GOVTOKEN: invalid signature");
         _approve(owner, spender, amount);
     }
 
@@ -95,8 +95,8 @@ contract PrismaToken is ERC20 {
     }
 
     function transferToLocker(address sender, uint256 amount) external returns (bool) {
-        require(msg.sender == locker, "Not locker");
-        _transfer(sender, locker, amount);
+        require(msg.sender == address(tokenLocker()), "Not locker");
+        _transfer(sender, address(tokenLocker()), amount);
         return true;
     }
 

@@ -3,7 +3,7 @@
 pragma solidity 0.8.20;
 
 /**
-    @title Prisma Boost Delegate Interface
+    @title NoFrame Boost Delegate Interface
     @notice When enabling boost delegation via `Treasury.setBoostDelegationParams`,
             you may optionally set a `callback` contract. If set, it should adhere
             to the following interface.

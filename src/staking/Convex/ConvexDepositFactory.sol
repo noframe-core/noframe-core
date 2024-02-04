@@ -3,30 +3,30 @@
 pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import "../../dependencies/PrismaOwnable.sol";
+import "../../core/BaseNoFrame.sol";
 
 interface IConvexDepositToken {
     function initialize(uint256 pid) external;
 }
 
 /**
-    @notice Prisma Convex Factory
-    @title Deploys clones of `ConvexDepositToken` as directed by the Prisma DAO
+    @notice NoFrame Convex Factory
+    @title Deploys clones of `ConvexDepositToken` as directed by the NoFrame DAO
  */
-contract ConvexFactory is PrismaOwnable {
+contract ConvexFactory is BaseNoFrame {
     using Clones for address;
 
     address public depositTokenImpl;
 
     event NewDeployment(uint256 pid, address depositToken);
 
-    constructor(address _prismaCore, address _depositTokenImpl) PrismaOwnable(_prismaCore) {
+    constructor(address _addressProvider, address _depositTokenImpl) BaseNoFrame(_addressProvider) {
         depositTokenImpl = _depositTokenImpl;
     }
 
     /**
         @dev After calling this function, the owner should also call `Treasury.registerReceiver`
-             to enable PRISMA emissions on the newly deployed `ConvexDepositToken`
+             to enable GOVTOKEN emissions on the newly deployed `ConvexDepositToken`
      */
     function deployNewInstance(uint256 pid) external onlyOwner {
         address depositToken = depositTokenImpl.cloneDeterministic(bytes32(pid));

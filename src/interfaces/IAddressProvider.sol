@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.20;
 
-interface IPrismaCore {
+interface IAddressProvider {
     function owner() external view returns (address);
 
     function guardian() external view returns (address);

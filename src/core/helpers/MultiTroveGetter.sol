@@ -5,7 +5,7 @@ pragma solidity 0.8.20;
 import "../../interfaces/ITroveManager.sol";
 import "../../interfaces/ISortedTroves.sol";
 
-/*  Helper contract for grabbing Trove data for the front end. Not part of the core Prisma system. */
+/*  Helper contract for grabbing Trove data for the front end. Not part of the core NoFrame system. */
 contract MultiTroveGetter {
     struct CombinedTroveData {
         address owner;

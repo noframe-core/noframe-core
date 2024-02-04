@@ -4,23 +4,20 @@ pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../interfaces/ITroveManager.sol";
-import "../interfaces/IDebtToken.sol";
 import "../dependencies/PrismaBase.sol";
 import "../dependencies/PrismaMath.sol";
-import "../dependencies/PrismaOwnable.sol";
 import "../dependencies/DelegatedOps.sol";
+import "./BaseNoFrame.sol";
 
 /**
-    @title Prisma Borrower Operations
+    @title NoFrame Borrower Operations
     @notice Based on Liquity's `BorrowerOperations`
             https://github.com/liquity/dev/blob/main/packages/contracts/contracts/BorrowerOperations.sol
 
-            Prisma's implementation is modified to support multiple collaterals. There is a 1:n
+            NoFrame's implementation is modified to support multiple collaterals. There is a 1:n
             relationship between `BorrowerOperations` and each `TroveManager` / `SortedTroves` pair.
  */
-contract BorrowerOperations is PrismaBase, PrismaOwnable, DelegatedOps {
-    IDebtToken public immutable debtToken;
-    address public immutable factory;
+contract BorrowerOperations is PrismaBase, BaseNoFrame, DelegatedOps {
     uint256 public minNetDebt;
 
     mapping(IERC20 => TrovesContracts) internal _trovesContracts;
@@ -80,14 +77,10 @@ contract BorrowerOperations is PrismaBase, PrismaOwnable, DelegatedOps {
     event CollateralEnabled(address collateralToken);
 
     constructor(
-        address _prismaCore,
-        address _debtTokenAddress,
-        address _factory,
+        address _addressProvider,
         uint256 _minNetDebt,
         uint256 _gasCompensation
-    ) PrismaOwnable(_prismaCore) PrismaBase(_gasCompensation) {
-        debtToken = IDebtToken(_debtTokenAddress);
-        factory = _factory;
+    ) BaseNoFrame(_addressProvider) PrismaBase(_gasCompensation) {
         _setMinNetDebt(_minNetDebt);
     }
 
@@ -101,7 +94,7 @@ contract BorrowerOperations is PrismaBase, PrismaOwnable, DelegatedOps {
     }
 
     function enableCollateral(ITroveManager troveManager, IERC20 collateralToken) external {
-        require(msg.sender == factory, "!factory");
+        require(msg.sender == factory(), "!factory");
         require(address(_trovesContracts[collateralToken].troveManager) == address(0), "Collateral already enabled");
         _trovesContracts[collateralToken] = TrovesContracts(troveManager, uint16(_troveManagers.length));
         _troveManagers.push(troveManager);
@@ -168,7 +161,7 @@ contract BorrowerOperations is PrismaBase, PrismaOwnable, DelegatedOps {
         address _upperHint,
         address _lowerHint
     ) external callerOrDelegated(account) {
-        require(!PRISMA_CORE.paused(), "Deposits are paused");
+        require(!addressProvider.paused(), "Deposits are paused");
 
         (ITroveManager troveManager, uint256 index) = _getTroveManagerAndIndex(collateralToken);
 
@@ -222,7 +215,7 @@ contract BorrowerOperations is PrismaBase, PrismaOwnable, DelegatedOps {
         collateralToken.transferFrom(msg.sender, address(troveManager), _collateralAmount);
 
         //  and mint the DebtAmount to the caller and gas compensation for Gas Pool
-        debtToken.mintWithGasCompensation(msg.sender, _debtAmount);
+        stablecoin().mintWithGasCompensation(msg.sender, _debtAmount);
 
         emit TroveUpdated(account, vars.compositeDebt, _collateralAmount, vars.stake, BorrowerOperation.openTrove);
     }
@@ -235,7 +228,7 @@ contract BorrowerOperations is PrismaBase, PrismaOwnable, DelegatedOps {
         address _upperHint,
         address _lowerHint
     ) external callerOrDelegated(account) {
-        require(!PRISMA_CORE.paused(), "Trove adjustments are paused");
+        require(!addressProvider.paused(), "Trove adjustments are paused");
         _adjustTrove(collateralToken, account, 0, _collateralAmount, 0, 0, false, _upperHint, _lowerHint);
     }
 
@@ -259,7 +252,7 @@ contract BorrowerOperations is PrismaBase, PrismaOwnable, DelegatedOps {
         address _upperHint,
         address _lowerHint
     ) external callerOrDelegated(account) {
-        require(!PRISMA_CORE.paused(), "Withdrawals are paused");
+        require(!addressProvider.paused(), "Withdrawals are paused");
         _adjustTrove(collateralToken, account, _maxFeePercentage, 0, 0, _debtAmount, true, _upperHint, _lowerHint);
     }
 
@@ -285,7 +278,7 @@ contract BorrowerOperations is PrismaBase, PrismaOwnable, DelegatedOps {
         address _upperHint,
         address _lowerHint
     ) external callerOrDelegated(account) {
-        require((_collDeposit == 0 && !_isDebtIncrease) || !PRISMA_CORE.paused(), "Trove adjustments are paused");
+        require((_collDeposit == 0 && !_isDebtIncrease) || !addressProvider.paused(), "Trove adjustments are paused");
         require(_collDeposit == 0 || _collWithdrawal == 0, "BorrowerOperations: Cannot withdraw and add coll");
         _adjustTrove(
             collateralToken,
@@ -395,7 +388,7 @@ contract BorrowerOperations is PrismaBase, PrismaOwnable, DelegatedOps {
         emit TroveUpdated(account, 0, 0, 0, BorrowerOperation.closeTrove);
 
         // Burn the repaid Debt from the user's balance and the gas compensation from the Gas Pool
-        debtToken.burnWithGasCompensation(msg.sender, debt - DEBT_GAS_COMPENSATION);
+        stablecoin().burnWithGasCompensation(msg.sender, debt - DEBT_GAS_COMPENSATION);
     }
 
     // --- Helper functions ---
@@ -410,7 +403,7 @@ contract BorrowerOperations is PrismaBase, PrismaOwnable, DelegatedOps {
 
         _requireUserAcceptsFee(debtFee, _debtAmount, _maxFeePercentage);
 
-        debtToken.mint(PRISMA_CORE.feeReceiver(), debtFee);
+        stablecoin().mint(feeReceiver(), debtFee);
 
         emit BorrowingFeePaid(_caller, debtFee);
 

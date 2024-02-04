@@ -5,7 +5,7 @@ pragma solidity 0.8.20;
 import { IOFT } from "@layerzerolabs/solidity-examples/contracts/token/oft/v1/interfaces/IOFT.sol";
 import "./IERC2612.sol";
 
-interface IDebtToken is IOFT, IERC2612 {
+interface IStablecoin is IOFT, IERC2612 {
     // --- Functions ---
 
     function mint(address _account, uint256 _amount) external;

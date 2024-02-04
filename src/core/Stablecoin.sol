@@ -5,15 +5,17 @@ pragma solidity 0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import { IERC20, ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IERC3156FlashBorrower } from "@openzeppelin/contracts/interfaces/IERC3156FlashBorrower.sol";
-import "../interfaces/IPrismaCore.sol";
+import "./BaseNoFrame.sol";
 
 /**
-    @title Prisma Debt Token "acUSD"
+    @title NoFrame Debt Token "acUSD"
     @notice CDP minted against collateral deposits within `TroveManager`.
             This contract has a 1:n relationship with multiple deployments of `TroveManager`,
             each of which hold one collateral type which may be used to mint this token.
  */
-contract DebtToken is ERC20 {
+contract Stablecoin is BaseNoFrame, ERC20 {
+    string internal constant _NAME = "noframeUSD";
+    string internal constant _SYMBOL = "nfUSD";
     string public constant version = "1";
 
     // --- ERC 3156 Data ---
@@ -37,38 +39,18 @@ contract DebtToken is ERC20 {
 
     mapping(address => uint256) private _nonces;
 
-    // --- Addresses ---
-    IPrismaCore private immutable _prismaCore;
-    address public immutable stabilityPoolAddress;
-    address public immutable borrowerOperationsAddress;
-    address public immutable factory;
-    address public immutable gasPool;
-
     mapping(address => bool) public troveManager;
 
     // Amount of debt to be locked in gas pool on opening troves
     uint256 public immutable DEBT_GAS_COMPENSATION;
 
     constructor(
-        string memory _name,
-        string memory _symbol,
-        address _stabilityPoolAddress,
-        address _borrowerOperationsAddress,
-        IPrismaCore prismaCore_,
-        address _layerZeroEndpoint,
-        address _factory,
-        address _gasPool,
+        address _addressProvider,
         uint256 _gasCompensation
-    ) ERC20(_name, _symbol) {
-        stabilityPoolAddress = _stabilityPoolAddress;
-        _prismaCore = prismaCore_;
-        borrowerOperationsAddress = _borrowerOperationsAddress;
-        factory = _factory;
-        gasPool = _gasPool;
-
+    ) BaseNoFrame(_addressProvider) ERC20(_NAME, _SYMBOL) {
         DEBT_GAS_COMPENSATION = _gasCompensation;
 
-        bytes32 hashedName = keccak256(bytes(_name));
+        bytes32 hashedName = keccak256(bytes(_NAME));
         bytes32 hashedVersion = keccak256(bytes(version));
 
         _HASHED_NAME = hashedName;
@@ -78,31 +60,31 @@ contract DebtToken is ERC20 {
     }
 
     function enableCollateral(address _troveManager) external {
-        require(msg.sender == factory, "!Factory");
+        require(msg.sender == address(factory()), "!Factory");
         troveManager[_troveManager] = true;
     }
 
-    // --- Functions for intra-Prisma calls ---
+    // --- Functions for intra-NoFrame calls ---
 
     function mintWithGasCompensation(address _account, uint256 _amount) external returns (bool) {
-        require(msg.sender == borrowerOperationsAddress);
+        require(msg.sender == address(borrowerOperations()));
         _mint(_account, _amount);
-        _mint(gasPool, DEBT_GAS_COMPENSATION);
+        _mint(gasPool(), DEBT_GAS_COMPENSATION);
 
         return true;
     }
 
     function burnWithGasCompensation(address _account, uint256 _amount) external returns (bool) {
-        require(msg.sender == borrowerOperationsAddress);
+        require(msg.sender == address(borrowerOperations()));
         _burn(_account, _amount);
-        _burn(gasPool, DEBT_GAS_COMPENSATION);
+        _burn(gasPool(), DEBT_GAS_COMPENSATION);
 
         return true;
     }
 
     function mint(address _account, uint256 _amount) external {
         require(
-            msg.sender == borrowerOperationsAddress || troveManager[msg.sender],
+            msg.sender == address(borrowerOperations()) || troveManager[msg.sender],
             "DebtToken: Caller is not BorrowerOperations"
         );
         _mint(_account, _amount);
@@ -117,13 +99,13 @@ contract DebtToken is ERC20 {
     }
 
     function sendToSP(address _sender, uint256 _amount) external {
-        require(msg.sender == stabilityPoolAddress, "Debt: Caller is not the StabilityPool");
+        require(msg.sender == address(stabilityPool()), "Debt: Caller is not the StabilityPool");
         _transfer(_sender, msg.sender, _amount);
     }
 
     function returnFromPool(address _poolAddress, address _receiver, uint256 _amount) external {
         require(
-            msg.sender == stabilityPoolAddress || troveManager[msg.sender],
+            msg.sender == address(stabilityPool()) || troveManager[msg.sender],
             "Debt: Caller is neither TroveManager nor StabilityPool"
         );
         _transfer(_poolAddress, _receiver, _amount);
@@ -212,7 +194,7 @@ contract DebtToken is ERC20 {
         );
         _spendAllowance(address(receiver), address(this), amount + fee);
         _burn(address(receiver), amount);
-        _transfer(address(receiver), _prismaCore.feeReceiver(), fee);
+        _transfer(address(receiver), feeReceiver(), fee);
         return true;
     }
 
@@ -267,7 +249,7 @@ contract DebtToken is ERC20 {
             "Debt: Cannot transfer tokens directly to the Debt token contract or the zero address"
         );
         require(
-            _recipient != stabilityPoolAddress && !troveManager[_recipient] && _recipient != borrowerOperationsAddress,
+            _recipient != address(stabilityPool()) && !troveManager[_recipient] && _recipient != address(borrowerOperations()),
             "Debt: Cannot transfer tokens directly to the StabilityPool, TroveManager or BorrowerOps"
         );
     }

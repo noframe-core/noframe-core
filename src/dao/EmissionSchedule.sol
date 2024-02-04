@@ -4,17 +4,17 @@ pragma solidity 0.8.20;
 
 import "../interfaces/IIncentiveVoting.sol";
 import "../interfaces/ITreasury.sol";
-import "../dependencies/PrismaOwnable.sol";
 import "../dependencies/SystemStart.sol";
+import "../core/BaseNoFrame.sol";
 
 /**
-    @title Prisma Emission Schedule
-    @notice Calculates weekly PRISMA emissions. The weekly amount is determined
+    @title NoFrame Emission Schedule
+    @notice Calculates weekly GOVTOKEN emissions. The weekly amount is determined
             as a percentage of the remaining unallocated supply. Over time the
             reward rate will decay to dust as it approaches the maximum supply,
             but should not reach zero for a Very Long Time.
  */
-contract EmissionSchedule is PrismaOwnable, SystemStart {
+contract EmissionSchedule is BaseNoFrame, SystemStart {
     event WeeklyPctScheduleSet(uint64[2][] schedule);
     event LockParametersSet(uint256 lockWeeks, uint256 lockDecayWeeks);
 
@@ -22,15 +22,12 @@ contract EmissionSchedule is PrismaOwnable, SystemStart {
     uint256 constant MAX_PCT = 10000;
     uint256 public constant MAX_LOCK_WEEKS = 52;
 
-    IIncentiveVoting public immutable voter;
-    IPrismaTreasury public immutable treasury;
-
     // current number of weeks that emissions are locked for when they are claimed
     uint64 public lockWeeks;
     // every `lockDecayWeeks`, the number of lock weeks is decreased by one
     uint64 public lockDecayWeeks;
 
-    // percentage of the unallocated PRISMA supply given as emissions in a week
+    // percentage of the unallocated GOVTOKEN supply given as emissions in a week
     uint64 public weeklyPct;
 
     // [(week, weeklyPct)... ] ordered by week descending
@@ -38,17 +35,12 @@ contract EmissionSchedule is PrismaOwnable, SystemStart {
     uint64[2][] private scheduledWeeklyPct;
 
     constructor(
-        address _prismaCore,
-        IIncentiveVoting _voter,
-        IPrismaTreasury _treasury,
+        address _addressProvider,
         uint64 _initialLockWeeks,
         uint64 _lockDecayWeeks,
         uint64 _weeklyPct,
         uint64[2][] memory _scheduledWeeklyPct
-    ) PrismaOwnable(_prismaCore) SystemStart(_prismaCore) {
-        voter = _voter;
-        treasury = _treasury;
-
+    ) BaseNoFrame(_addressProvider) SystemStart(_addressProvider) {
         lockWeeks = _initialLockWeeks;
         lockDecayWeeks = _lockDecayWeeks;
         weeklyPct = _weeklyPct;
@@ -89,7 +81,7 @@ contract EmissionSchedule is PrismaOwnable, SystemStart {
         uint256 week,
         uint256 totalWeeklyEmissions
     ) external returns (uint256) {
-        uint256 pct = voter.getReceiverVotePct(id, week);
+        uint256 pct = incentiveVoting().getReceiverVotePct(id, week);
 
         return (totalWeeklyEmissions * pct) / 1e18;
     }
@@ -98,7 +90,7 @@ contract EmissionSchedule is PrismaOwnable, SystemStart {
         uint256 week,
         uint256 unallocatedTotal
     ) external returns (uint256 amount, uint256 lock) {
-        require(msg.sender == address(treasury));
+        require(msg.sender == address(treasury()));
 
         // apply the lock week decay
         lock = lockWeeks;

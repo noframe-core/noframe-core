@@ -3,7 +3,7 @@
 pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import "../../dependencies/PrismaOwnable.sol";
+import "../../core/BaseNoFrame.sol";
 import "../../interfaces/ICurveProxy.sol";
 
 interface ICurveDepositToken {
@@ -11,10 +11,10 @@ interface ICurveDepositToken {
 }
 
 /**
-    @notice Prisma Curve Factory
-    @title Deploys clones of `CurveDepositToken` as directed by the Prisma DAO
+    @notice NoFrame Curve Factory
+    @title Deploys clones of `CurveDepositToken` as directed by the NoFrame DAO
  */
-contract CurveFactory is PrismaOwnable {
+contract CurveFactory is BaseNoFrame {
     using Clones for address;
 
     ICurveProxy public immutable curveProxy;
@@ -22,21 +22,21 @@ contract CurveFactory is PrismaOwnable {
 
     event NewDeployment(address gauge, address depositToken);
 
-    constructor(address _prismaCore, ICurveProxy _curveProxy, address _depositTokenImpl) PrismaOwnable(_prismaCore) {
+    constructor(address _addressProvider, ICurveProxy _curveProxy, address _depositTokenImpl) BaseNoFrame(_addressProvider) {
         curveProxy = _curveProxy;
         depositTokenImpl = _depositTokenImpl;
     }
 
     /**
         @dev After calling this function, the owner should also call `Treasury.registerReceiver`
-             to enable PRISMA emissions on the newly deployed `CurveDepositToken`
+             to enable GOVTOKEN emissions on the newly deployed `CurveDepositToken`
      */
     function deployNewInstance(address gauge) external onlyOwner {
         address depositToken = depositTokenImpl.cloneDeterministic(bytes32(bytes20(gauge)));
 
         ICurveDepositToken(depositToken).initialize(gauge);
         curveProxy.setPerGaugeApproval(depositToken, gauge);
-        // TODO enable PRISMA emissions
+        // TODO enable GOVTOKEN emissions
 
         emit NewDeployment(gauge, depositToken);
     }

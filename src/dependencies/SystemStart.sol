@@ -2,17 +2,17 @@
 
 pragma solidity 0.8.20;
 
-import "../interfaces/IPrismaCore.sol";
+import "../interfaces/IAddressProvider.sol";
 
 /**
-    @title Prisma System Start Time
+    @title NoFrame System Start Time
     @dev Provides a unified `startTime` and `getWeek`, used for emissions.
  */
 contract SystemStart {
     uint256 immutable startTime;
 
     constructor(address prismaCore) {
-        startTime = IPrismaCore(prismaCore).startTime();
+        startTime = IAddressProvider(prismaCore).startTime();
     }
 
     function getWeek() public view returns (uint256 week) {

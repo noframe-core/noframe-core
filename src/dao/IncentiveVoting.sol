@@ -5,21 +5,19 @@ pragma solidity 0.8.20;
 import "../dependencies/DelegatedOps.sol";
 import "../dependencies/SystemStart.sol";
 import "../interfaces/ITokenLocker.sol";
+import "../core/BaseNoFrame.sol";
 
 /**
-    @title Prisma Incentive Voting
-    @notice Users with PRISMA balances locked in `TokenLocker` may register their
+    @title NoFrame Incentive Voting
+    @notice Users with GOVTOKEN balances locked in `TokenLocker` may register their
             lock weights in this contract, and use this weight to vote on where
-            new PRISMA emissions will be released in the following week.
+            new GOVTOKEN emissions will be released in the following week.
 
             Conceptually, incentive voting functions similarly to Curve's gauge weight voting.
  */
-contract IncentiveVoting is DelegatedOps, SystemStart {
+contract IncentiveVoting is BaseNoFrame, DelegatedOps, SystemStart {
     uint256 public constant MAX_POINTS = 10000; // must be less than 2**16 or things will break
     uint256 public constant MAX_LOCK_WEEKS = 52; // must be the same as `MultiLocker`
-
-    ITokenLocker public immutable tokenLocker;
-    address public immutable treasury;
 
     struct AccountData {
         // system week when the account's lock weights were registered
@@ -77,9 +75,8 @@ contract IncentiveVoting is DelegatedOps, SystemStart {
     event NewVotes(address indexed account, Vote[] votes, uint256 totalPointsUsed);
     event ClearedVotes(address indexed account);
 
-    constructor(address _prismaCore, ITokenLocker _tokenLocker, address _treasury) SystemStart(_prismaCore) {
-        tokenLocker = _tokenLocker;
-        treasury = _treasury;
+    constructor(address _addressProvider) BaseNoFrame(_addressProvider) SystemStart(_addressProvider) {
+        //
     }
 
     function getAccountRegisteredLocks(
@@ -201,7 +198,7 @@ contract IncentiveVoting is DelegatedOps, SystemStart {
     }
 
     function registerNewReceiver() external returns (uint256) {
-        require(msg.sender == treasury, "Not Treasury");
+        require(msg.sender == address(treasury()), "Not Treasury");
         uint256 id = receiverCount;
         receiverUpdatedWeek[id] = uint16(getWeek());
         receiverCount = id + 1;
@@ -315,7 +312,7 @@ contract IncentiveVoting is DelegatedOps, SystemStart {
              vote weight than their actual lock weight.
      */
     function unfreeze(address account, bool keepVote) external returns (bool) {
-        require(msg.sender == address(tokenLocker));
+        require(msg.sender == address(tokenLocker()));
         AccountData storage accountData = accountLockData[account];
         uint256 frozenWeight = accountData.frozenWeight;
 
@@ -380,7 +377,7 @@ contract IncentiveVoting is DelegatedOps, SystemStart {
         AccountData storage accountData = accountLockData[account];
 
         // get updated account lock weights and store locally
-        (ITokenLocker.LockData[] memory lockData, uint256 frozen) = tokenLocker.getAccountActiveLocks(
+        (ITokenLocker.LockData[] memory lockData, uint256 frozen) = tokenLocker().getAccountActiveLocks(
             account,
             minWeeks
         );

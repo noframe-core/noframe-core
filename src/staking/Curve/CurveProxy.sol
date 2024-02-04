@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../interfaces/IGaugeController.sol";
 import "../../interfaces/ILiquidityGauge.sol";
-import "../../dependencies/PrismaOwnable.sol";
+import "../../core/BaseNoFrame.sol";
 
 interface IVotingEscrow {
     function create_lock(uint256 amount, uint256 unlock_time) external;
@@ -31,11 +31,11 @@ interface IAragon {
 }
 
 /**
-    @title Prisma Curve Proxy
+    @title NoFrame Curve Proxy
     @notice Locks CRV in Curve's `VotingEscrow` and interacts with various Curve
             contracts that require / provide benefit from the locked CRV position.
  */
-contract CurveProxy is PrismaOwnable {
+contract CurveProxy is BaseNoFrame {
     using Address for address;
     using SafeERC20 for IERC20;
 
@@ -79,13 +79,13 @@ contract CurveProxy is PrismaOwnable {
     }
 
     constructor(
-        address _prismaCore,
+        address _addressProvider,
         IERC20 _CRV,
         IGaugeController _gaugeController,
         IMinter _minter,
         IVotingEscrow _votingEscrow,
         IFeeDistributor _feeDistributor
-    ) PrismaOwnable(_prismaCore) {
+    ) BaseNoFrame(_addressProvider) {
         CRV = _CRV;
         gaugeController = _gaugeController;
         minter = _minter;
@@ -166,7 +166,7 @@ contract CurveProxy is PrismaOwnable {
         feeDistributor.claim();
         uint256 amount = feeToken.balanceOf(address(this));
 
-        feeToken.transfer(PRISMA_CORE.feeReceiver(), amount);
+        feeToken.transfer(feeReceiver(), amount);
 
         return amount;
     }

@@ -5,37 +5,28 @@ pragma solidity 0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "../interfaces/IBorrowerOperations.sol";
-import "../interfaces/IDebtToken.sol";
 import "../interfaces/ISortedTroves.sol";
 import "../interfaces/ITreasury.sol";
 import "../interfaces/IPriceFeed.sol";
 import "../dependencies/SystemStart.sol";
 import "../dependencies/PrismaBase.sol";
 import "../dependencies/PrismaMath.sol";
-import "../dependencies/PrismaOwnable.sol";
+import "./BaseNoFrame.sol";
 
 /**
-    @title Prisma Trove Manager
+    @title NoFrame Trove Manager
     @notice Based on Liquity's `TroveManager`
             https://github.com/liquity/dev/blob/main/packages/contracts/contracts/TroveManager.sol
 
-            Prisma's implementation is modified so that multiple `TroveManager` and `SortedTroves`
+            NoFrame's implementation is modified so that multiple `TroveManager` and `SortedTroves`
             contracts are deployed in tandem, with each pair managing troves of a single collateral
             type.
 
             Functionality related to liquidations has been moved to `LiquidationManager`. This was
             necessary to avoid the restriction on deployed bytecode size.
  */
-contract TroveManager is PrismaBase, PrismaOwnable, SystemStart {
+contract TroveManager is PrismaBase, BaseNoFrame, SystemStart {
     // --- Connected contract declarations ---
-
-    address public immutable borrowerOperationsAddress;
-    address public immutable liquidationManager;
-    address immutable gasPoolAddress;
-    IDebtToken public immutable debtToken;
-    IPrismaTreasury public immutable treasury;
-
-    IPriceFeed public priceFeed;
     IERC20 public collateralToken;
 
     // A doubly linked list of Troves, sorted by their collateral ratios
@@ -65,7 +56,7 @@ contract TroveManager is PrismaBase, PrismaOwnable, SystemStart {
      */
     uint256 constant BETA = 2;
 
-    // commented values are prisma's fixed settings for each parameter
+    // commented values are NoFrame's fixed settings for each parameter
     uint256 public minuteDecayFactor; // 999037758833783000;
     uint256 public redemptionFeeFloor; // DECIMAL_PRECISION / 1000 * 5; // 0.5%
     uint256 public maxRedemptionFee; // DECIMAL_PRECISION; // 100%
@@ -232,24 +223,14 @@ contract TroveManager is PrismaBase, PrismaOwnable, SystemStart {
     }
 
     constructor(
-        address _prismaCore,
-        address _gasPoolAddress,
-        address _debtTokenAddress,
-        address _borrowerOperationsAddress,
-        address _treasury,
-        address _liquidationManager,
+        address _addressProvider,
         uint256 _gasCompensation
-    ) PrismaOwnable(_prismaCore) PrismaBase(_gasCompensation) SystemStart(_prismaCore) {
-        gasPoolAddress = _gasPoolAddress;
-        debtToken = IDebtToken(_debtTokenAddress);
-        borrowerOperationsAddress = _borrowerOperationsAddress;
-        treasury = IPrismaTreasury(_treasury);
-        liquidationManager = _liquidationManager;
+    ) BaseNoFrame(_addressProvider) PrismaBase(_gasCompensation) SystemStart(_addressProvider) {
+        //
     }
 
-    function setAddresses(address _priceFeedAddress, address _sortedTrovesAddress, address _collateralToken) external {
+    function setAddresses(address _sortedTrovesAddress, address _collateralToken) external {
         require(address(sortedTroves) == address(0));
-        priceFeed = IPriceFeed(_priceFeedAddress);
         sortedTroves = ISortedTroves(_sortedTrovesAddress);
         collateralToken = IERC20(_collateralToken);
 
@@ -261,7 +242,7 @@ contract TroveManager is PrismaBase, PrismaOwnable, SystemStart {
     }
 
     function notifyRegisteredId(uint256[] calldata _assignedIds) external returns (bool) {
-        require(msg.sender == address(treasury));
+        require(msg.sender == address(treasury()));
         require(emissionId.debt == 0, "Already assigned");
         uint256 length = _assignedIds.length;
         require(length == 2, "Incorrect ID count");
@@ -284,14 +265,6 @@ contract TroveManager is PrismaBase, PrismaOwnable, SystemStart {
         paused = _paused;
     }
 
-    /**
-     * @notice Sets a custom price feed for this trove manager
-     * @param _priceFeedAddress Price feed address
-     */
-    function setPriceFeed(address _priceFeedAddress) external onlyOwner {
-        priceFeed = IPriceFeed(_priceFeedAddress);
-    }
-
     /*
         When sunsetting we:
         1) Disable collateral handoff to SP
@@ -300,7 +273,7 @@ contract TroveManager is PrismaBase, PrismaOwnable, SystemStart {
         4) Disable new loans
      */
     function startCollateralSunset() external {
-        require(msg.sender == address(PRISMA_CORE), "Not prisma core");
+        require(msg.sender == address(addressProvider), "Not NoFrame core");
         sunsetting = true;
         _accrueActiveInterests();
         _redistributeDebtAndColl(0, 0); //Accrue defaults interests
@@ -361,16 +334,16 @@ contract TroveManager is PrismaBase, PrismaOwnable, SystemStart {
 
     function collectInterests() external {
         require(interestPayable > 0, "Nothing to collect");
-        debtToken.mint(PRISMA_CORE.feeReceiver(), interestPayable);
+        stablecoin().mint(feeReceiver(), interestPayable);
         interestPayable = 0;
     }
 
     // --- Getters ---
 
     function fetchPrice() public returns (uint256) {
-        IPriceFeed _priceFeed = priceFeed;
+        IPriceFeed _priceFeed = IPriceFeed(priceFeed());
         if (address(_priceFeed) == address(0)) {
-            _priceFeed = IPriceFeed(PRISMA_CORE.priceFeed());
+            _priceFeed = IPriceFeed(priceFeed());
         }
         return _priceFeed.fetchPrice();
     }
@@ -672,7 +645,7 @@ contract TroveManager is PrismaBase, PrismaOwnable, SystemStart {
         totals.price = fetchPrice();
         require(getTCR(totals.price) >= MCR, "Cannot redeem when TCR < MCR");
         require(_debtAmount > 0, "Amount must be greater than zero");
-        require(debtToken.balanceOf(msg.sender) >= _debtAmount, "Insufficient balance");
+        require(stablecoin().balanceOf(msg.sender) >= _debtAmount, "Insufficient balance");
         _updateBalances();
         totals.totalDebtSupplyAtStart = getEntireSystemDebt();
 
@@ -728,14 +701,14 @@ contract TroveManager is PrismaBase, PrismaOwnable, SystemStart {
 
         _requireUserAcceptsFee(totals.collateralFee, totals.totalCollateralDrawn, _maxFeePercentage);
 
-        _sendCollateral(PRISMA_CORE.feeReceiver(), totals.collateralFee);
+        _sendCollateral(feeReceiver(), totals.collateralFee);
 
         totals.collateralToSendToRedeemer = totals.totalCollateralDrawn - totals.collateralFee;
 
         emit Redemption(_debtAmount, totals.totalDebtToRedeem, totals.totalCollateralDrawn, totals.collateralFee);
 
         // Burn the total debt that is cancelled with debt, and send the redeemed collateral to msg.sender
-        debtToken.burn(msg.sender, totals.totalDebtToRedeem);
+        stablecoin().burn(msg.sender, totals.totalDebtToRedeem);
         // Update Trove Manager debt, and send collateral to account
         totalActiveDebt = totalActiveDebt - totals.totalDebtToRedeem;
         _sendCollateral(msg.sender, totals.collateralToSendToRedeemer);
@@ -785,7 +758,7 @@ contract TroveManager is PrismaBase, PrismaOwnable, SystemStart {
                     : newNICR - _partialRedemptionHintNICR;
                 if (
                     icrError > 5e14 ||
-                    _getNetDebt(newDebt) < IBorrowerOperations(borrowerOperationsAddress).minNetDebt()
+                    _getNetDebt(newDebt) < IBorrowerOperations(borrowerOperations()).minNetDebt()
                 ) {
                     singleRedemption.cancelledPartial = true;
                     return singleRedemption;
@@ -812,7 +785,7 @@ contract TroveManager is PrismaBase, PrismaOwnable, SystemStart {
      * Any surplus collateral left in the trove, is sent to the Coll surplus pool, and can be later claimed by the borrower.
      */
     function _redeemCloseTrove(address _borrower, uint256 _debt, uint256 _collateral) internal {
-        debtToken.burn(gasPoolAddress, _debt);
+        stablecoin().burn(gasPool(), _debt);
         // Update Trove Manager debt, and send collateral to account
         totalActiveDebt = totalActiveDebt - _debt;
 
@@ -856,14 +829,14 @@ contract TroveManager is PrismaBase, PrismaOwnable, SystemStart {
         uint256 amount = _claimReward(msg.sender);
 
         if (amount > 0) {
-            treasury.transferAllocatedTokens(msg.sender, receiver, amount);
+            treasury().transferAllocatedTokens(msg.sender, receiver, amount);
         }
         emit RewardClaimed(msg.sender, receiver, amount);
         return amount;
     }
 
     function treasuryClaimReward(address claimant, address) external returns (uint256) {
-        require(msg.sender == address(treasury));
+        require(msg.sender == address(treasury()));
 
         return _claimReward(claimant);
     }
@@ -962,7 +935,7 @@ contract TroveManager is PrismaBase, PrismaOwnable, SystemStart {
         uint256 previousWeek = (_periodFinish - startTime) / 1 weeks - 1;
 
         // active debt rewards
-        uint256 amount = treasury.allocateNewEmissions(id.debt);
+        uint256 amount = treasury().allocateNewEmissions(id.debt);
         if (block.timestamp < _periodFinish) {
             uint256 remaining = _periodFinish - block.timestamp;
             amount += remaining * rewardRate;
@@ -972,7 +945,7 @@ contract TroveManager is PrismaBase, PrismaOwnable, SystemStart {
         periodFinish = uint32(block.timestamp + REWARD_DURATION);
 
         // minting rewards
-        amount = treasury.allocateNewEmissions(id.minting);
+        amount = treasury().allocateNewEmissions(id.minting);
         uint256 reward = dailyMintReward[previousWeek];
         if (reward > 0) {
             uint32[7] memory totals = totalMints[previousWeek];
@@ -1316,7 +1289,7 @@ contract TroveManager is PrismaBase, PrismaOwnable, SystemStart {
         emit SystemSnapshotsUpdated(totalStakesSnapshot, totalCollateralSnapshot);
 
         // send gas compensation
-        debtToken.returnFromPool(gasPoolAddress, _liquidator, _debtGasComp);
+        stablecoin().returnFromPool(gasPool(), _liquidator, _debtGasComp);
         _sendCollateral(_liquidator, _collGasComp);
     }
 
@@ -1386,7 +1359,7 @@ contract TroveManager is PrismaBase, PrismaOwnable, SystemStart {
         uint256 _newTotalDebt = totalActiveDebt + netDebtAmount;
         require(_newTotalDebt + defaultedDebt <= maxSystemDebt, "Collateral debt limit reached");
         totalActiveDebt = _newTotalDebt;
-        debtToken.mint(account, debtAmount);
+        stablecoin().mint(account, debtAmount);
     }
 
     function decreaseDebtAndSendCollateral(address account, uint256 debt, uint256 coll) external {
@@ -1396,7 +1369,7 @@ contract TroveManager is PrismaBase, PrismaOwnable, SystemStart {
     }
 
     function _decreaseDebt(address account, uint256 amount) internal {
-        debtToken.burn(account, amount);
+        stablecoin().burn(account, amount);
         totalActiveDebt = totalActiveDebt - amount;
     }
 
@@ -1449,10 +1422,10 @@ contract TroveManager is PrismaBase, PrismaOwnable, SystemStart {
     // --- Requires ---
 
     function _requireCallerIsBO() internal view {
-        require(msg.sender == borrowerOperationsAddress, "Caller not BO");
+        require(msg.sender == address(borrowerOperations()), "Caller not BO");
     }
 
     function _requireCallerIsLM() internal view {
-        require(msg.sender == liquidationManager, "Not Liquidation Manager");
+        require(msg.sender == address(liquidationManager()), "Not Liquidation Manager");
     }
 }

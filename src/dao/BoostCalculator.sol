@@ -4,17 +4,18 @@ pragma solidity 0.8.20;
 
 import "../interfaces/ITokenLocker.sol";
 import "../dependencies/SystemStart.sol";
+import "../core/BaseNoFrame.sol";
 
 /**
-    @title Prisma Boost Calculator
-    @notice "Boost" refers to a bonus to claimable PRISMA tokens that an account
-            receives based on it's locked PRISMA weight. An account with "Max boost"
-            is earning PRISMA rewards at 2x the rate of an account that is unboosted.
+    @title NoFrame Boost Calculator
+    @notice "Boost" refers to a bonus to claimable GOVTOKEN tokens that an account
+            receives based on it's locked GOVTOKEN weight. An account with "Max boost"
+            is earning GOVTOKEN rewards at 2x the rate of an account that is unboosted.
             Boost works as follows:
 
-            * In a given week, the percentage of the weekly PRISMA rewards that an
+            * In a given week, the percentage of the weekly GOVTOKEN rewards that an
             account can claim with maximum boost is the same as the percentage
-            of PRISMA lock weight that the account has, relative to the total lock
+            of GOVTOKEN lock weight that the account has, relative to the total lock
             weight.
             * Once an account's weekly claims exceed the amount allowed with max boost,
             the boost rate decays linearly from 2x to 1x. This decay occurs over the same
@@ -27,12 +28,12 @@ import "../dependencies/SystemStart.sol";
 
             * At the end of week 1, Alice has a lock weight of 100. There is a total
               lock weight of 1,000. Alice controls 10% of the total lock weight.
-            * During week 2, a total of 500,000 new PRISMA rewards are made available
+            * During week 2, a total of 500,000 new GOVTOKEN rewards are made available
             * Because Alice has 10% of the lock weight in week 1, during week 2 she
-              can claim up to 10% of the rewards (50,000 PRISMA) with her full boost.
-            * Once Alice's weekly claim exceeds 50,000 PRISMA, her boost decays linearly
-              as she claims another 50,000 PRISMA.
-            * Once Alice's weekly claims exceed 100,000 PRISMA, any further claims are
+              can claim up to 10% of the rewards (50,000 GOVTOKEN) with her full boost.
+            * Once Alice's weekly claim exceeds 50,000 GOVTOKEN, her boost decays linearly
+              as she claims another 50,000 GOVTOKEN.
+            * Once Alice's weekly claims exceed 100,000 GOVTOKEN, any further claims are
               "unboosted" and receive only half as many tokens as they would have boosted.
             * At the start of the next week, Alice's boost is fully replenished. She still
               controls 10% of the total lock weight, so she can claim another 10% of this
@@ -48,9 +49,7 @@ import "../dependencies/SystemStart.sol";
             are returned to the unallocated token supply, and distributed again in the
             emissions of future weeks.
  */
-contract BoostCalculator is SystemStart {
-    ITokenLocker public immutable locker;
-
+contract BoostCalculator is BaseNoFrame, SystemStart {
     // initial number of weeks where all accounts recieve max boost
     uint256 public immutable MAX_BOOST_GRACE_WEEKS;
 
@@ -60,9 +59,8 @@ contract BoostCalculator is SystemStart {
     // account -> week -> % of lock weight (where 1e9 represents 100%)
     mapping(address account => uint32[65535]) accountWeeklyLockPct;
 
-    constructor(address _prismaCore, ITokenLocker _locker, uint256 _graceWeeks) SystemStart(_prismaCore) {
+    constructor(address _addressProvider, uint256 _graceWeeks) BaseNoFrame(_addressProvider) SystemStart(_addressProvider) {
         require(_graceWeeks > 0);
-        locker = _locker;
         MAX_BOOST_GRACE_WEEKS = _graceWeeks;
     }
 
@@ -71,8 +69,8 @@ contract BoostCalculator is SystemStart {
         @param account Address claiming the reward
         @param amount Amount being claimed (assuming maximum boost)
         @param previousAmount Amount that was already claimed in the current week
-        @param totalWeeklyEmissions Total PRISMA emissions released this week
-        @return adjustedAmount Amount of PRISMA received after applying boost
+        @param totalWeeklyEmissions Total GOVTOKEN emissions released this week
+        @return adjustedAmount Amount of GOVTOKEN received after applying boost
      */
     function getBoostedAmount(
         address account,
@@ -84,8 +82,8 @@ contract BoostCalculator is SystemStart {
         if (week < MAX_BOOST_GRACE_WEEKS) return amount;
         week -= 1;
 
-        uint256 accountWeight = locker.getAccountWeightAt(account, week);
-        uint256 totalWeight = locker.getTotalWeightAt(week);
+        uint256 accountWeight = tokenLocker().getAccountWeightAt(account, week);
+        uint256 totalWeight = tokenLocker().getTotalWeightAt(week);
         if (totalWeight == 0) totalWeight = 1;
         uint256 pct = (1e9 * accountWeight) / totalWeight;
         if (pct == 0) pct = 1;
@@ -96,7 +94,7 @@ contract BoostCalculator is SystemStart {
         @notice Get the remaining claimable amounts this week that will receive boost
         @param claimant address to query boost amounts for
         @param previousAmount Amount that was already claimed in the current week
-        @param totalWeeklyEmissions Total PRISMA emissions released this week
+        @param totalWeeklyEmissions Total GOVTOKEN emissions released this week
         @return maxBoosted remaining claimable amount that will receive max boost
         @return boosted remaining claimable amount that will receive some amount of boost (including max boost)
      */
@@ -112,8 +110,8 @@ contract BoostCalculator is SystemStart {
         }
         week -= 1;
 
-        uint256 accountWeight = locker.getAccountWeightAt(claimant, week);
-        uint256 totalWeight = locker.getTotalWeightAt(week);
+        uint256 accountWeight = tokenLocker().getAccountWeightAt(claimant, week);
+        uint256 totalWeight = tokenLocker().getTotalWeightAt(week);
         if (totalWeight == 0) totalWeight = 1;
         uint256 pct = (1e9 * accountWeight) / totalWeight;
         if (pct == 0) return (0, 0);
@@ -133,8 +131,8 @@ contract BoostCalculator is SystemStart {
         @param account Address claiming the reward
         @param amount Amount being claimed (assuming maximum boost)
         @param previousAmount Amount that was already claimed in the current week
-        @param totalWeeklyEmissions Total PRISMA emissions released this week
-        @return adjustedAmount Amount of PRISMA received after applying boost
+        @param totalWeeklyEmissions Total GOVTOKEN emissions released this week
+        @return adjustedAmount Amount of GOVTOKEN received after applying boost
      */
     function getBoostedAmountWrite(
         address account,
@@ -150,12 +148,12 @@ contract BoostCalculator is SystemStart {
         if (pct == 0) {
             uint256 totalWeight = totalWeeklyWeights[week];
             if (totalWeight == 0) {
-                totalWeight = locker.getTotalWeightAt(week);
+                totalWeight = tokenLocker().getTotalWeightAt(week);
                 if (totalWeight == 0) totalWeight = 1;
                 totalWeeklyWeights[week] = uint40(totalWeight);
             }
 
-            uint256 accountWeight = locker.getAccountWeightAt(account, week);
+            uint256 accountWeight = tokenLocker().getAccountWeightAt(account, week);
             pct = (1e9 * accountWeight) / totalWeight;
             if (pct == 0) pct = 1;
             accountWeeklyLockPct[account][week] = uint32(pct);

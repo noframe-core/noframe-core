@@ -3,7 +3,7 @@
 pragma solidity 0.8.20;
 
 /**
-    @title Prisma Delegated Operations
+    @title NoFrame Delegated Operations
     @notice Allows delegation to specific contract functionality. Useful for creating
             wrapper contracts to bundle multiple interactions into a single call.
 

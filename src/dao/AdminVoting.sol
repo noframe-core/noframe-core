@@ -6,14 +6,16 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "../dependencies/DelegatedOps.sol";
 import "../dependencies/SystemStart.sol";
 import "../interfaces/ITokenLocker.sol";
+import "../interfaces/IAddressProvider.sol";
+import "../core/BaseNoFrame.sol";
 
 /**
-    @title Prisma DAO Admin Voter
-    @notice Primary ownership contract for all Prisma contracts. Allows executing
-            arbitrary function calls only after a required percentage of PRISMA
+    @title NoFrame DAO Admin Voter
+    @notice Primary ownership contract for all NoFrame contracts. Allows executing
+            arbitrary function calls only after a required percentage of GOVTOKEN
             lockers have signalled in favor of performing the action.
  */
-contract AdminVoting is DelegatedOps, SystemStart {
+contract AdminVoting is BaseNoFrame, DelegatedOps, SystemStart {
     using Address for address;
 
     event ProposalCreated(address indexed account, Action[] payload, uint256 week, uint256 requiredWeight);
@@ -39,9 +41,6 @@ contract AdminVoting is DelegatedOps, SystemStart {
     uint256 public constant VOTING_PERIOD = 1 weeks;
     uint256 public constant MIN_TIME_TO_EXECUTION = 86400;
 
-    ITokenLocker public immutable tokenLocker;
-    IPrismaCore public immutable prismaCore;
-
     Proposal[] proposalData;
     mapping(uint256 => Action[]) proposalPayloads;
 
@@ -54,14 +53,10 @@ contract AdminVoting is DelegatedOps, SystemStart {
     uint256 public passingPct;
 
     constructor(
-        address _prismaCore,
-        ITokenLocker _tokenLocker,
+        address _addressProvider,
         uint256 _minCreateProposalWeight,
         uint256 _passingPct
-    ) SystemStart(_prismaCore) {
-        tokenLocker = _tokenLocker;
-        prismaCore = IPrismaCore(_prismaCore);
-
+    ) BaseNoFrame(_addressProvider) SystemStart(_addressProvider) {
         minCreateProposalWeight = _minCreateProposalWeight;
         passingPct = _passingPct;
     }
@@ -121,9 +116,9 @@ contract AdminVoting is DelegatedOps, SystemStart {
         require(week > 0, "No proposals in first week");
         week -= 1;
 
-        uint256 accountWeight = tokenLocker.getAccountWeightAt(account, week);
+        uint256 accountWeight = tokenLocker().getAccountWeightAt(account, week);
         require(accountWeight >= minCreateProposalWeight, "Not enough weight to propose");
-        uint256 totalWeight = tokenLocker.getTotalWeightAt(week);
+        uint256 totalWeight = tokenLocker().getTotalWeightAt(week);
         uint40 requiredWeight = uint40((totalWeight * passingPct) / 100);
         uint256 idx = proposalData.length;
         proposalData.push(
@@ -158,7 +153,7 @@ contract AdminVoting is DelegatedOps, SystemStart {
         require(!proposal.processed, "Proposal already processed");
         require(proposal.createdAt + VOTING_PERIOD > block.timestamp, "Voting period has closed");
 
-        uint256 accountWeight = tokenLocker.getAccountWeightAt(account, proposal.week);
+        uint256 accountWeight = tokenLocker().getAccountWeightAt(account, proposal.week);
         if (weight == 0) {
             weight = accountWeight;
             require(weight > 0, "No vote weight");
@@ -179,7 +174,7 @@ contract AdminVoting is DelegatedOps, SystemStart {
         @param id Proposal ID
      */
     function cancelProposal(uint256 id) external {
-        require(msg.sender == prismaCore.guardian(), "Only guardian can cancel proposals");
+        require(msg.sender == guardian(), "Only guardian can cancel proposals");
         require(id < proposalData.length, "Invalid ID");
         // We make sure guardians cannot cancel proposals for their replacement
         Action[] storage payload = proposalPayloads[id];
@@ -191,7 +186,7 @@ contract AdminVoting is DelegatedOps, SystemStart {
             sig := mload(add(data, 0x20))
         }
         require(
-            firstAction.target != address(prismaCore) || sig != IPrismaCore.setGuardian.selector,
+            firstAction.target != address(addressProvider) || sig != IAddressProvider.setGuardian.selector,
             "Guardian replacement not cancellable"
         );
         proposalData[id].processed = true;
@@ -252,6 +247,6 @@ contract AdminVoting is DelegatedOps, SystemStart {
              at the end of the deployment sequence
      */
     function acceptTransferOwnership() external {
-        prismaCore.acceptTransferOwnership();
+        addressProvider.acceptTransferOwnership();
     }
 }

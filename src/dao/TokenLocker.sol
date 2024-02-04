@@ -3,17 +3,17 @@
 pragma solidity 0.8.20;
 
 import "../dependencies/SystemStart.sol";
-import "../interfaces/IPrismaCore.sol";
 import "../interfaces/IIncentiveVoting.sol";
-import "../interfaces/IPrismaToken.sol";
+import "../core/BaseNoFrame.sol";
+
 
 /**
-    @title Prisma Token Locker
-    @notice PRISMA tokens can be locked in this contract to receive "lock weight",
+    @title NoFrame Token Locker
+    @notice GOVTOKEN tokens can be locked in this contract to receive "lock weight",
             which is used within `AdminVoting` and `IncentiveVoting` to vote on
             core protocol operations.
  */
-contract TokenLocker is SystemStart {
+contract TokenLocker is BaseNoFrame, SystemStart {
     // The maximum number of weeks that tokens may be locked for. Also determines the maximum
     // number of active locks that a single account may open. Weight is calculated as:
     // `[balance] * [weeks to unlock]`. Weights are stored as `uint40` and balances as `uint32`,
@@ -28,10 +28,6 @@ contract TokenLocker is SystemStart {
     //
     // cannot be violated or the system could break due to overflow.
     uint256 public immutable lockToTokenRatio;
-
-    IPrismaToken public immutable lockToken;
-    IIncentiveVoting public immutable incentiveVoter;
-    IPrismaCore public immutable prismaCore;
 
     struct AccountData {
         // Currently locked balance. Each week the lock weight decays by this amount.
@@ -92,15 +88,9 @@ contract TokenLocker is SystemStart {
     event LocksWithdrawn(address indexed account, uint256 withdrawn, uint256 penalty);
 
     constructor(
-        address _prismaCore,
-        IPrismaToken _token,
-        IIncentiveVoting _voter,
+        address _addressProvider,
         uint256 _lockToTokenRatio
-    ) SystemStart(_prismaCore) {
-        lockToken = _token;
-        incentiveVoter = _voter;
-        prismaCore = IPrismaCore(_prismaCore);
-
+    ) BaseNoFrame(_addressProvider) SystemStart(_addressProvider) {
         lockToTokenRatio = _lockToTokenRatio;
     }
 
@@ -403,7 +393,7 @@ contract TokenLocker is SystemStart {
         require(_weeks > 0, "Min 1 week");
         require(_amount > 0, "Amount must be nonzero");
         _lock(_account, _amount, _weeks);
-        lockToken.transferToLocker(msg.sender, _amount * lockToTokenRatio);
+        govToken().transferToLocker(msg.sender, _amount * lockToTokenRatio);
 
         return true;
     }
@@ -553,7 +543,7 @@ contract TokenLocker is SystemStart {
         accountData.updateWeeks[systemWeek / 256] = bitfield[0];
         accountData.updateWeeks[(systemWeek / 256) + 1] = bitfield[1];
 
-        lockToken.transferToLocker(msg.sender, increasedAmount * lockToTokenRatio);
+        govToken().transferToLocker(msg.sender, increasedAmount * lockToTokenRatio);
 
         // update account and total weight / decay storage values
         accountWeeklyWeights[_account][systemWeek] = uint40(accountWeight + increasedWeight);
@@ -700,7 +690,7 @@ contract TokenLocker is SystemStart {
         require(frozen > 0, "Locks already unfrozen");
 
         // unfreeze the caller's registered vote weights
-        incentiveVoter.unfreeze(msg.sender, keepIncentivesVote);
+        incentiveVoting().unfreeze(msg.sender, keepIncentivesVote);
 
         // update account weights and get the current account week
         _weeklyWeightWrite(msg.sender);
@@ -741,7 +731,7 @@ contract TokenLocker is SystemStart {
         if (_weeks > 0) {
             _lock(msg.sender, unlocked, _weeks);
         } else {
-            lockToken.transfer(msg.sender, unlocked * lockToTokenRatio);
+            govToken().transfer(msg.sender, unlocked * lockToTokenRatio);
             emit LocksWithdrawn(msg.sender, unlocked, 0);
         }
         return true;
@@ -774,7 +764,7 @@ contract TokenLocker is SystemStart {
         uint256 unlocked = accountData.unlocked;
         if (unlocked >= amountToWithdraw) {
             accountData.unlocked = uint32(unlocked - amountToWithdraw);
-            lockToken.transfer(msg.sender, amountToWithdraw * lockToTokenRatio);
+            govToken().transfer(msg.sender, amountToWithdraw * lockToTokenRatio);
             return amountToWithdraw;
         }
         uint256 remaining = amountToWithdraw;
@@ -840,8 +830,8 @@ contract TokenLocker is SystemStart {
         accountWeeklyWeights[msg.sender][systemWeek] = uint40(weight - decreasedWeight);
         totalWeeklyWeights[systemWeek] = uint40(getTotalWeightWrite() - decreasedWeight);
 
-        lockToken.transfer(msg.sender, amountToWithdraw * lockToTokenRatio);
-        lockToken.transfer(prismaCore.feeReceiver(), penaltyTotal * lockToTokenRatio);
+        govToken().transfer(msg.sender, amountToWithdraw * lockToTokenRatio);
+        govToken().transfer(feeReceiver(), penaltyTotal * lockToTokenRatio);
         emit LocksWithdrawn(msg.sender, amountToWithdraw, penaltyTotal);
 
         return amountToWithdraw;
