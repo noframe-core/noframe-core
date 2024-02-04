@@ -12,6 +12,23 @@ interface ITroveManager {
         address _collateralTokenAddress
     ) external;
 
+    function initMarket(
+        address _mcr,
+        address _ccr,
+        address sortedTroves,
+        address collateral,
+        uint256 minuteDecayFactor,
+        uint256 redemptionFeeFloor,
+        uint256 borrowingFeeFloor,
+        uint256 maxBorrowingFee,
+        uint256 interestRate,
+        uint256 maxDebt,
+        address addressProvider
+        ) external;
+
+    function CCR() external returns(uint256);
+    function MCR() external returns(uint256);
+
     function borrowerOperationsAddress() external view returns (address);
 
     function stabilityPool() external view returns (address);

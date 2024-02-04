@@ -6,7 +6,7 @@ pragma solidity 0.8.20;
 interface ISortedTroves {
     // --- Functions ---
 
-    function setAddresses(address _TroveManagerAddress) external;
+    function initMarket(address _TroveManagerAddress) external;
 
     function insert(address _id, uint256 _ICR, address _prevId, address _nextId) external;
 

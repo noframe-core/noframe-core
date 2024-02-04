@@ -22,7 +22,6 @@ contract PriceFeed is BaseNoFrame {
     IAggregatorV3Interface public immutable priceAggregator; // Mainnet Chainlink aggregator
     ITellorCaller public immutable tellorCaller; // Wrapper contract that calls the Tellor system
 
-    uint256 public constant DECIMAL_PRECISION = 1e18;
     uint256 public constant ETHUSD_TELLOR_REQ_ID = 1;
 
     // Use to convert a price answer to an 18-digit precision uint256

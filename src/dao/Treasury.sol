@@ -4,7 +4,6 @@ pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "../dependencies/SystemStart.sol";
 import "../interfaces/IEmissionSchedule.sol";
 import "../interfaces/IIncentiveVoting.sol";
 import "../interfaces/ITokenLocker.sol";
@@ -29,7 +28,7 @@ interface IRewards {
             treasury gradually releases tokens to registered emissions receivers
             as determined by `EmissionSchedule` and `BoostCalculator`.
  */
-contract Treasury is BaseNoFrame, SystemStart {
+contract Treasury is BaseNoFrame {
     using Address for address;
     using SafeERC20 for IERC20;
 
@@ -87,7 +86,7 @@ contract Treasury is BaseNoFrame, SystemStart {
         address _addressProvider,
         uint64 initialLockWeeks,
         uint128[] memory _fixedInitialAmounts
-    ) BaseNoFrame(_addressProvider) SystemStart(_addressProvider) {
+    ) BaseNoFrame(_addressProvider) {
 
         govToken().approve(address(tokenLocker()), type(uint256).max);
 

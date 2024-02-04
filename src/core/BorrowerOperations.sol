@@ -4,7 +4,6 @@ pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../interfaces/ITroveManager.sol";
-import "../dependencies/PrismaBase.sol";
 import "../dependencies/PrismaMath.sol";
 import "../dependencies/DelegatedOps.sol";
 import "./BaseNoFrame.sol";
@@ -17,7 +16,7 @@ import "./BaseNoFrame.sol";
             NoFrame's implementation is modified to support multiple collaterals. There is a 1:n
             relationship between `BorrowerOperations` and each `TroveManager` / `SortedTroves` pair.
  */
-contract BorrowerOperations is PrismaBase, BaseNoFrame, DelegatedOps {
+contract BorrowerOperations is BaseNoFrame, DelegatedOps {
     uint256 public minNetDebt;
 
     mapping(IERC20 => TrovesContracts) internal _trovesContracts;
@@ -78,9 +77,8 @@ contract BorrowerOperations is PrismaBase, BaseNoFrame, DelegatedOps {
 
     constructor(
         address _addressProvider,
-        uint256 _minNetDebt,
-        uint256 _gasCompensation
-    ) BaseNoFrame(_addressProvider) PrismaBase(_gasCompensation) {
+        uint256 _minNetDebt
+    ) BaseNoFrame(_addressProvider) {
         _setMinNetDebt(_minNetDebt);
     }
 
@@ -142,8 +140,8 @@ contract BorrowerOperations is PrismaBase, BaseNoFrame, DelegatedOps {
         }
     }
 
-    function checkRecoveryMode(uint256 TCR) public pure returns (bool) {
-        return TCR < CCR;
+    function checkRecoveryMode(uint256 TCR) public returns (bool) {
+        return TCR < MTCR();
     }
 
     function getCompositeDebt(uint256 _debt) external view returns (uint256) {
@@ -186,9 +184,9 @@ contract BorrowerOperations is PrismaBase, BaseNoFrame, DelegatedOps {
         vars.NICR = PrismaMath._computeNominalCR(_collateralAmount, vars.compositeDebt);
 
         if (isRecoveryMode) {
-            _requireICRisAboveCCR(vars.ICR);
+            _requireICRisAboveCCR(vars.ICR, troveManager.CCR());
         } else {
-            _requireICRisAboveMCR(vars.ICR);
+            _requireICRisAboveMCR(vars.ICR, troveManager.MCR());
             uint256 newTCR = _getNewTCRFromTroveChange(
                 totalPricedCollateral,
                 totalDebt,
@@ -341,6 +339,8 @@ contract BorrowerOperations is PrismaBase, BaseNoFrame, DelegatedOps {
             isRecoveryMode,
             _collWithdrawal,
             _isDebtIncrease,
+            troveManager.CCR(),
+            troveManager.MCR(),
             vars
         );
 
@@ -428,8 +428,10 @@ contract BorrowerOperations is PrismaBase, BaseNoFrame, DelegatedOps {
         bool _isRecoveryMode,
         uint256 _collWithdrawal,
         bool _isDebtIncrease,
+        uint256 CCR,
+        uint256 MCR,
         LocalVariables_adjustTrove memory _vars
-    ) internal pure {
+    ) internal view {
         /*
          *In Recovery Mode, only allow:
          *
@@ -461,12 +463,12 @@ contract BorrowerOperations is PrismaBase, BaseNoFrame, DelegatedOps {
         if (_isRecoveryMode) {
             require(_collWithdrawal == 0, "BorrowerOps: Collateral withdrawal not permitted Recovery Mode");
             if (_isDebtIncrease) {
-                _requireICRisAboveCCR(newICR);
+                _requireICRisAboveCCR(newICR, CCR);
                 _requireNewICRisAboveOldICR(newICR, oldICR);
             }
         } else {
             // if Normal Mode
-            _requireICRisAboveMCR(newICR);
+            _requireICRisAboveMCR(newICR, MCR);
             uint256 newTCR = _getNewTCRFromTroveChange(
                 totalPricedCollateral,
                 totalDebt,
@@ -479,11 +481,11 @@ contract BorrowerOperations is PrismaBase, BaseNoFrame, DelegatedOps {
         }
     }
 
-    function _requireICRisAboveMCR(uint256 _newICR) internal pure {
+    function _requireICRisAboveMCR(uint256 _newICR, uint256 MCR) internal pure {
         require(_newICR >= MCR, "BorrowerOps: An operation that would result in ICR < MCR is not permitted");
     }
 
-    function _requireICRisAboveCCR(uint256 _newICR) internal pure {
+    function _requireICRisAboveCCR(uint256 _newICR, uint256 CCR) internal pure {
         require(_newICR >= CCR, "BorrowerOps: Operation must leave trove with ICR >= CCR");
     }
 
@@ -491,8 +493,8 @@ contract BorrowerOperations is PrismaBase, BaseNoFrame, DelegatedOps {
         require(_newICR >= _oldICR, "BorrowerOps: Cannot decrease your Trove's ICR in Recovery Mode");
     }
 
-    function _requireNewTCRisAboveCCR(uint256 _newTCR) internal pure {
-        require(_newTCR >= CCR, "BorrowerOps: An operation that would result in TCR < CCR is not permitted");
+    function _requireNewTCRisAboveCCR(uint256 _newTCR) internal view {
+        require(_newTCR >= MTCR(), "BorrowerOps: An operation that would result in TCR < CCR is not permitted");
     }
 
     function _requireAtLeastMinNetDebt(uint256 _netDebt) internal view {

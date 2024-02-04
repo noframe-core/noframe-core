@@ -23,6 +23,8 @@ import "../interfaces/IBoostCalculator.sol";
  */
 contract AddressProvider {
 
+    uint256 public MTCR = 1100000000000000000; // 110%
+
     // ADDRESSES
     address public borrowerOperations;
     address public stablecoin;

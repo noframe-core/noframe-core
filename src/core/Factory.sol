@@ -34,7 +34,7 @@ contract Factory is BaseNoFrame {
 
     error CollateralAlreadyDeployed(address collateral);
 
-    event NewDeployment(address collateral, address priceFeed, address troveManager, address sortedTroves);
+    event NewDeployment(address collateral, address troveManager, address sortedTroves);
 
     constructor(address _addressProvider) BaseNoFrame(_addressProvider) {
         //
@@ -47,13 +47,18 @@ contract Factory is BaseNoFrame {
         @dev After calling this function, the owner should also call `Treasury.registerReceiver`
              to enable GOVTOKEN emissions on the newly deployed `TroveManager`
         @param collateral Collateral token to use in new deployment
-        @param priceFeed Custom `PriceFeed` deployment. Leave as `address(0)` to use the default.
-        @param params Struct of initial parameters to be set on the new trove manager
+        // TODO
      */
     function deployNewInstance(
         address collateral,
-        address priceFeed,
-        DeploymentParams memory params
+        address _mcr,
+        address _ccr,
+        uint256 minuteDecayFactor,
+        uint256 redemptionFeeFloor,
+        uint256 borrowingFeeFloor,
+        uint256 maxBorrowingFee,
+        uint256 interestRate,
+        uint256 maxDebt
     ) external onlyOwner {
         if (collateralDeployed[collateral]) revert CollateralAlreadyDeployed(collateral);
 
@@ -63,25 +68,27 @@ contract Factory is BaseNoFrame {
         address sortedTroves;
         sortedTroves = sortedTrovesImpl().cloneDeterministic(bytes32(bytes20(collateral)));
 
-        ITroveManager(troveManager).setAddresses(priceFeed, sortedTroves, collateral);
-        ISortedTroves(sortedTroves).setAddresses(troveManager);
+        ISortedTroves(sortedTroves).initMarket(troveManager);
+        ITroveManager(troveManager).initMarket(
+            _mcr, 
+            _ccr, 
+            sortedTroves, 
+            collateral,
+            minuteDecayFactor,
+            redemptionFeeFloor,
+            borrowingFeeFloor,
+            maxBorrowingFee,
+            interestRate,
+            maxDebt,
+            address(addressProvider)
+            );
 
         stabilityPool().enableCollateral(collateral);
         liquidationManager().enableCollateral(troveManager, collateral);
         stablecoin().enableCollateral(troveManager);
         borrowerOperations().enableCollateral(troveManager, collateral);
-
-        ITroveManager(troveManager).setParameters(
-            params.minuteDecayFactor,
-            params.redemptionFeeFloor,
-            params.maxRedemptionFee,
-            params.borrowingFeeFloor,
-            params.maxBorrowingFee,
-            params.interestRate,
-            params.maxDebt
-        );
         collateralDeployed[collateral] = true;
-        emit NewDeployment(collateral, priceFeed, troveManager, sortedTroves);
+        emit NewDeployment(collateral, troveManager, sortedTroves);
     }
 
     function getTroveManager(address collateral) public view returns (ITroveManager) {

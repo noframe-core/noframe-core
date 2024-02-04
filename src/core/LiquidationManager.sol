@@ -8,7 +8,6 @@ import "../interfaces/ISortedTroves.sol";
 import "../interfaces/IBorrowerOperations.sol";
 import "../interfaces/ITroveManager.sol";
 import "../dependencies/PrismaMath.sol";
-import "../dependencies/PrismaBase.sol";
 import "./BaseNoFrame.sol";
 
 /**
@@ -37,7 +36,7 @@ import "./BaseNoFrame.sol";
                the value of the debt is distributed between stability pool depositors. The remaining
                collateral is left claimable by the trove owner.
  */
-contract LiquidationManager is BaseNoFrame, PrismaBase {
+contract LiquidationManager is BaseNoFrame{
     
     mapping(IERC20 => ITroveManager) internal _trovesContracts;
 
@@ -97,9 +96,8 @@ contract LiquidationManager is BaseNoFrame, PrismaBase {
     }
 
     constructor(
-        address _addressProvider,
-        uint256 _gasCompensation
-    ) BaseNoFrame(_addressProvider) PrismaBase(_gasCompensation) {
+        address _addressProvider
+    ) BaseNoFrame(_addressProvider) {
         //
     }
 
@@ -161,7 +159,7 @@ contract LiquidationManager is BaseNoFrame, PrismaBase {
             if (ICR <= _100pct) {
                 singleLiquidation = _liquidateWithoutSP(troveManager, account);
                 _applyLiquidationValuesToTotals(totals, singleLiquidation);
-            } else if (ICR < MCR) {
+            } else if (ICR < troveManager.MCR()) {
                 singleLiquidation = _liquidateNormalMode(troveManager, account, debtInStabPool, sunsetting);
                 debtInStabPool -= singleLiquidation.debtToOffset;
                 _applyLiquidationValuesToTotals(totals, singleLiquidation);
@@ -265,7 +263,7 @@ contract LiquidationManager is BaseNoFrame, PrismaBase {
             uint ICR = troveManager.getCurrentICR(account, price);
             if (ICR <= _100pct) {
                 singleLiquidation = _liquidateWithoutSP(troveManager, account);
-            } else if (ICR < MCR) {
+            } else if (ICR < troveManager.MCR()) {
                 singleLiquidation = _liquidateNormalMode(troveManager, account, debtInStabPool, sunsetting);
                 debtInStabPool -= singleLiquidation.debtToOffset;
             } else {
@@ -292,7 +290,7 @@ contract LiquidationManager is BaseNoFrame, PrismaBase {
                 }
                 if (ICR <= _100pct) {
                     singleLiquidation = _liquidateWithoutSP(troveManager, account);
-                } else if (ICR < MCR) {
+                } else if (ICR < troveManager.MCR()) {
                     singleLiquidation = _liquidateNormalMode(troveManager, account, debtInStabPool, sunsetting);
                 } else {
                     if (sunsetting) continue;
@@ -404,7 +402,7 @@ contract LiquidationManager is BaseNoFrame, PrismaBase {
         uint _TCR,
         uint256 _price
     ) internal returns (LiquidationValues memory singleLiquidation) {
-        if ((_ICR >= _TCR) || (_TCR >= CCR)) {
+        if ((_ICR >= _TCR) || (_TCR >= MTCR())) {
             // do not liquidate
             return singleLiquidation;
         }
@@ -427,7 +425,7 @@ contract LiquidationManager is BaseNoFrame, PrismaBase {
 
         singleLiquidation.entireTroveDebt = entireTroveDebt;
         singleLiquidation.entireTroveColl = entireTroveColl;
-        uint256 collToOffset = (entireTroveDebt * MCR) / _price;
+        uint256 collToOffset = (entireTroveDebt * troveManager.MCR()) / _price;
 
         singleLiquidation.collGasCompensation = _getCollGasCompensation(collToOffset);
         singleLiquidation.debtGasCompensation = DEBT_GAS_COMPENSATION;

@@ -41,15 +41,9 @@ contract Stablecoin is BaseNoFrame, ERC20 {
 
     mapping(address => bool) public troveManager;
 
-    // Amount of debt to be locked in gas pool on opening troves
-    uint256 public immutable DEBT_GAS_COMPENSATION;
-
     constructor(
-        address _addressProvider,
-        uint256 _gasCompensation
+        address _addressProvider
     ) BaseNoFrame(_addressProvider) ERC20(_NAME, _SYMBOL) {
-        DEBT_GAS_COMPENSATION = _gasCompensation;
-
         bytes32 hashedName = keccak256(bytes(_NAME));
         bytes32 hashedVersion = keccak256(bytes(version));
 

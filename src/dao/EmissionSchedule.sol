@@ -4,7 +4,6 @@ pragma solidity 0.8.20;
 
 import "../interfaces/IIncentiveVoting.sol";
 import "../interfaces/ITreasury.sol";
-import "../dependencies/SystemStart.sol";
 import "../core/BaseNoFrame.sol";
 
 /**
@@ -14,7 +13,7 @@ import "../core/BaseNoFrame.sol";
             reward rate will decay to dust as it approaches the maximum supply,
             but should not reach zero for a Very Long Time.
  */
-contract EmissionSchedule is BaseNoFrame, SystemStart {
+contract EmissionSchedule is BaseNoFrame {
     event WeeklyPctScheduleSet(uint64[2][] schedule);
     event LockParametersSet(uint256 lockWeeks, uint256 lockDecayWeeks);
 
@@ -40,7 +39,7 @@ contract EmissionSchedule is BaseNoFrame, SystemStart {
         uint64 _lockDecayWeeks,
         uint64 _weeklyPct,
         uint64[2][] memory _scheduledWeeklyPct
-    ) BaseNoFrame(_addressProvider) SystemStart(_addressProvider) {
+    ) BaseNoFrame(_addressProvider) {
         lockWeeks = _initialLockWeeks;
         lockDecayWeeks = _lockDecayWeeks;
         weeklyPct = _weeklyPct;

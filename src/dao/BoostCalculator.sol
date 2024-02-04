@@ -3,7 +3,6 @@
 pragma solidity 0.8.20;
 
 import "../interfaces/ITokenLocker.sol";
-import "../dependencies/SystemStart.sol";
 import "../core/BaseNoFrame.sol";
 
 /**
@@ -49,7 +48,7 @@ import "../core/BaseNoFrame.sol";
             are returned to the unallocated token supply, and distributed again in the
             emissions of future weeks.
  */
-contract BoostCalculator is BaseNoFrame, SystemStart {
+contract BoostCalculator is BaseNoFrame {
     // initial number of weeks where all accounts recieve max boost
     uint256 public immutable MAX_BOOST_GRACE_WEEKS;
 
@@ -59,7 +58,7 @@ contract BoostCalculator is BaseNoFrame, SystemStart {
     // account -> week -> % of lock weight (where 1e9 represents 100%)
     mapping(address account => uint32[65535]) accountWeeklyLockPct;
 
-    constructor(address _addressProvider, uint256 _graceWeeks) BaseNoFrame(_addressProvider) SystemStart(_addressProvider) {
+    constructor(address _addressProvider, uint256 _graceWeeks) BaseNoFrame(_addressProvider) {
         require(_graceWeeks > 0);
         MAX_BOOST_GRACE_WEEKS = _graceWeeks;
     }

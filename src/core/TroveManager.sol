@@ -8,8 +8,6 @@ import "../interfaces/IBorrowerOperations.sol";
 import "../interfaces/ISortedTroves.sol";
 import "../interfaces/ITreasury.sol";
 import "../interfaces/IPriceFeed.sol";
-import "../dependencies/SystemStart.sol";
-import "../dependencies/PrismaBase.sol";
 import "../dependencies/PrismaMath.sol";
 import "./BaseNoFrame.sol";
 
@@ -25,7 +23,14 @@ import "./BaseNoFrame.sol";
             Functionality related to liquidations has been moved to `LiquidationManager`. This was
             necessary to avoid the restriction on deployed bytecode size.
  */
-contract TroveManager is PrismaBase, BaseNoFrame, SystemStart {
+contract TroveManager is BaseNoFrame {
+
+    // Minimum collateral ratio for individual troves
+    uint256 public MCR = 1100000000000000000; // 110%
+
+    // Critical system collateral ratio. If the system's total collateral ratio (TCR) falls below the CCR, Recovery Mode is triggered.
+    uint256 public CCR = 1500000000000000000; // 150%
+
     // --- Connected contract declarations ---
     IERC20 public collateralToken;
 
@@ -59,7 +64,7 @@ contract TroveManager is PrismaBase, BaseNoFrame, SystemStart {
     // commented values are NoFrame's fixed settings for each parameter
     uint256 public minuteDecayFactor; // 999037758833783000;
     uint256 public redemptionFeeFloor; // DECIMAL_PRECISION / 1000 * 5; // 0.5%
-    uint256 public maxRedemptionFee; // DECIMAL_PRECISION; // 100%
+    uint256 public maxRedemptionFee = DECIMAL_PRECISION; // DECIMAL_PRECISION; // 100%
     uint256 public borrowingFeeFloor; // DECIMAL_PRECISION / 1000 * 5; // 0.5%
     uint256 public maxBorrowingFee; // DECIMAL_PRECISION / 100 * 5; // 5%
     uint256 public maxSystemDebt;
@@ -222,23 +227,66 @@ contract TroveManager is PrismaBase, BaseNoFrame, SystemStart {
         _;
     }
 
-    constructor(
-        address _addressProvider,
-        uint256 _gasCompensation
-    ) BaseNoFrame(_addressProvider) PrismaBase(_gasCompensation) SystemStart(_addressProvider) {
-        //
+    constructor() BaseNoFrame(address(0)) {
     }
 
-    function setAddresses(address _sortedTrovesAddress, address _collateralToken) external {
-        require(address(sortedTroves) == address(0));
-        sortedTroves = ISortedTroves(_sortedTrovesAddress);
-        collateralToken = IERC20(_collateralToken);
+    function initMarket(
+            uint256 _mcr, 
+            uint256 _ccr, 
+            address _sortedTrovesAddress, 
+            address _collateralToken,
+            uint256 _minuteDecayFactor,
+            uint256 _redemptionFeeFloor,
+            uint256 _borrowingFeeFloor,
+            uint256 _maxBorrowingFee,
+            uint256 _interestRateInBPS,
+            uint256 _maxSystemDebt,
+            address _addressProvider
+        ) external {
 
+        if (minuteDecayFactor != 0) {
+            require(msg.sender == owner(), "Only owner");
+        }
+
+        addressProvider = AddressProvider(_addressProvider);
+
+        MCR = _mcr;
+        CCR = _ccr;
+        collateralToken = IERC20(_collateralToken);
+        sortedTroves = ISortedTroves(_sortedTrovesAddress);
         systemDeploymentTime = block.timestamp;
         sunsetting = false;
         activeInterestIndex = INTEREST_PRECISION;
         lastActiveIndexUpdate = block.timestamp;
         lastDefaultInterestUpdate = block.timestamp;
+
+        //
+
+        require(!sunsetting, "Cannot change after sunset");
+        require(
+            _minuteDecayFactor >= 977159968434245000 && // half-life of 30 minutes
+                _minuteDecayFactor <= 999931237762985000 // half-life of 1 week
+        );
+        require(_borrowingFeeFloor <= _maxBorrowingFee && _maxBorrowingFee <= DECIMAL_PRECISION);
+
+        _decayBaseRate();
+
+        minuteDecayFactor = _minuteDecayFactor;
+        redemptionFeeFloor = _redemptionFeeFloor;
+        borrowingFeeFloor = _borrowingFeeFloor;
+        maxBorrowingFee = _maxBorrowingFee;
+        maxSystemDebt = _maxSystemDebt;
+
+        require(_interestRateInBPS <= MAX_INTEREST_RATE_IN_BPS, "Interest > Maximum");
+
+        uint256 newInterestRate = (INTEREST_PRECISION * _interestRateInBPS) / (10000 * SECONDS_IN_YEAR);
+        if (newInterestRate != interestRate) {
+            _accrueActiveInterests();
+            // accrual function doesn't update timestamp if interest was 0
+            lastActiveIndexUpdate = block.timestamp;
+            _redistributeDebtAndColl(0, 0); //Accrue defaults interests
+            interestRate = newInterestRate;
+        }
     }
 
     function notifyRegisteredId(uint256[] calldata _assignedIds) external returns (bool) {
@@ -349,7 +397,7 @@ contract TroveManager is PrismaBase, BaseNoFrame, SystemStart {
     }
 
     function getWeekAndDay() public view returns (uint256, uint256) {
-        uint256 duration = (block.timestamp - startTime);
+        uint256 duration = (block.timestamp - startTime());
         uint256 week = duration / 1 weeks;
         uint256 day = (duration % 1 weeks) / 1 days;
         return (week, day);
@@ -931,8 +979,8 @@ contract TroveManager is PrismaBase, BaseNoFrame, SystemStart {
         EmissionId memory id = emissionId;
         if (id.debt == 0) return;
         uint256 currentWeek = getWeek();
-        if (currentWeek < (_periodFinish - startTime) / 1 weeks) return;
-        uint256 previousWeek = (_periodFinish - startTime) / 1 weeks - 1;
+        if (currentWeek < (_periodFinish - startTime()) / 1 weeks) return;
+        uint256 previousWeek = (_periodFinish - startTime()) / 1 weeks - 1;
 
         // active debt rewards
         uint256 amount = treasury().allocateNewEmissions(id.debt);

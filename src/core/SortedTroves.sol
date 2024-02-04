@@ -35,7 +35,7 @@ contract SortedTroves {
     event NodeAdded(address _id, uint256 _NICR);
     event NodeRemoved(address _id);
 
-    function setAddresses(address _troveManagerAddress) external {
+    function initMarket(address _troveManagerAddress) external {
         require(address(troveManager) == address(0), "Already set");
         troveManager = ITroveManager(_troveManagerAddress);
     }

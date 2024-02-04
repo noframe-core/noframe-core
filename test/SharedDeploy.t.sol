@@ -111,22 +111,22 @@ abstract contract SharedDeploy is Test {
         st_impl = new SortedTroves();
         addressProvider.setSortedTrovesImpl(address(st_impl));
 
-        tm_impl = new TroveManager(address(addressProvider), GAS_COMP);
+        tm_impl = new TroveManager();
         addressProvider.setTroveManagerImpl(address(tm_impl));
 
         factory = new Factory(address(addressProvider));
         addressProvider.setFactory(address(factory));
 
-        stablecoin = new Stablecoin(address(addressProvider), GAS_COMP);
+        stablecoin = new Stablecoin(address(addressProvider));
         addressProvider.setStablecoin(address(stablecoin));
         
-        liquidationManager = new LiquidationManager(address(addressProvider), GAS_COMP);
+        liquidationManager = new LiquidationManager(address(addressProvider));
         addressProvider.setLiquidationManager(address(liquidationManager));
 
         stabilityPool = new StabilityPool(address(addressProvider));
         addressProvider.setStabilityPool(address(stabilityPool));
 
-        borrowerOperations = new BorrowerOperations(address(addressProvider), MIN_DEBT, GAS_COMP);
+        borrowerOperations = new BorrowerOperations(address(addressProvider), MIN_DEBT);
         addressProvider.setBorrowerOperations(address(borrowerOperations));
 
         tokenLocker = new TokenLocker(address(addressProvider), lockToTokenRatio);
@@ -155,8 +155,7 @@ abstract contract SharedDeploy is Test {
         vm.warp(block.timestamp + 86400 * 3 + 1);
         adminVoting.acceptTransferOwnership();
 
-        console.log(address(adminVoting));
-        console.log(treasury.owner());
+        vm.stopPrank();
 
 
 

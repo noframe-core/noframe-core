@@ -4,7 +4,6 @@ pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/utils/Address.sol";
 import "../dependencies/DelegatedOps.sol";
-import "../dependencies/SystemStart.sol";
 import "../interfaces/ITokenLocker.sol";
 import "../interfaces/IAddressProvider.sol";
 import "../core/BaseNoFrame.sol";
@@ -15,7 +14,7 @@ import "../core/BaseNoFrame.sol";
             arbitrary function calls only after a required percentage of GOVTOKEN
             lockers have signalled in favor of performing the action.
  */
-contract AdminVoting is BaseNoFrame, DelegatedOps, SystemStart {
+contract AdminVoting is BaseNoFrame, DelegatedOps{
     using Address for address;
 
     event ProposalCreated(address indexed account, Action[] payload, uint256 week, uint256 requiredWeight);
@@ -56,7 +55,7 @@ contract AdminVoting is BaseNoFrame, DelegatedOps, SystemStart {
         address _addressProvider,
         uint256 _minCreateProposalWeight,
         uint256 _passingPct
-    ) BaseNoFrame(_addressProvider) SystemStart(_addressProvider) {
+    ) BaseNoFrame(_addressProvider) {
         minCreateProposalWeight = _minCreateProposalWeight;
         passingPct = _passingPct;
     }
