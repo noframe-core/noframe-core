@@ -5,8 +5,8 @@ pragma solidity 0.8.20;
 import "../interfaces/ITellorCaller.sol";
 import "../interfaces/IAggregatorV3Interface.sol";
 import "../dependencies/PrismaMath.sol";
-import "./AddressProvider.sol";
-import "./BaseNoFrame.sol";
+import "./Controller.sol";
+import "./SharedBase.sol";
 
 /**
     @title NoFrame Default Price Feed
@@ -18,7 +18,7 @@ import "./BaseNoFrame.sol";
             the time of writing this contract (wstETH, rETH). In some cases this approach may
             be insufficient and so a custom oracle may be required.
  */
-contract PriceFeed is BaseNoFrame {
+contract PriceFeed is SharedBase {
     IAggregatorV3Interface public immutable priceAggregator; // Mainnet Chainlink aggregator
     ITellorCaller public immutable tellorCaller; // Wrapper contract that calls the Tellor system
 
@@ -91,7 +91,7 @@ contract PriceFeed is BaseNoFrame {
         address _addressProvider,
         address _priceAggregatorAddress,
         address _tellorCallerAddress
-    ) BaseNoFrame(_addressProvider) {
+    ) SharedBase(_addressProvider) {
         priceAggregator = IAggregatorV3Interface(_priceAggregatorAddress);
         tellorCaller = ITellorCaller(_tellorCallerAddress);
 
@@ -111,7 +111,7 @@ contract PriceFeed is BaseNoFrame {
     }
 
     /**
-        @notice Set the share price function for a specific TroveManager
+        @notice Set the share price function for a specific Market
         @param _troveManager Address of the trove manager that this share price is to be used for
         @param _collateral Address of the LST that has the share price function
         @param _signature Four byte function selector to be used when calling `_collateral`, in order
@@ -135,9 +135,9 @@ contract PriceFeed is BaseNoFrame {
 
     /**
         @notice Get the latest price returned from the oracle
-        @dev If the caller is a `TroveManager` with a share price function set,
+        @dev If the caller is a `Market` with a share price function set,
              the oracle price is multiplied by the share price. You can obtain
-             these values by calling `TroveManager.fetchPrice()` rather than
+             these values by calling `Market.fetchPrice()` rather than
              directly interacting with this contract.
      */
     function fetchPrice() external returns (uint256 price) {

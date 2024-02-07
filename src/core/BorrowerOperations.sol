@@ -3,10 +3,10 @@
 pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../interfaces/ITroveManager.sol";
+import "../interfaces/IMarket.sol";
 import "../dependencies/PrismaMath.sol";
 import "../dependencies/DelegatedOps.sol";
-import "./BaseNoFrame.sol";
+import "./SharedBase.sol";
 
 /**
     @title NoFrame Borrower Operations
@@ -14,16 +14,16 @@ import "./BaseNoFrame.sol";
             https://github.com/liquity/dev/blob/main/packages/contracts/contracts/BorrowerOperations.sol
 
             NoFrame's implementation is modified to support multiple collaterals. There is a 1:n
-            relationship between `BorrowerOperations` and each `TroveManager` / `SortedTroves` pair.
+            relationship between `BorrowerOperations` and each `Market` / `SortedTroves` pair.
  */
-contract BorrowerOperations is BaseNoFrame, DelegatedOps {
+contract BorrowerOperations is SharedBase, DelegatedOps {
     uint256 public minNetDebt;
 
     mapping(IERC20 => TrovesContracts) internal _trovesContracts;
-    ITroveManager[] internal _troveManagers;
+    IMarket[] internal _troveManagers;
 
     struct TrovesContracts {
-        ITroveManager troveManager;
+        IMarket troveManager;
         uint16 index;
     }
 
@@ -78,7 +78,7 @@ contract BorrowerOperations is BaseNoFrame, DelegatedOps {
     constructor(
         address _addressProvider,
         uint256 _minNetDebt
-    ) BaseNoFrame(_addressProvider) {
+    ) SharedBase(_addressProvider) {
         _setMinNetDebt(_minNetDebt);
     }
 
@@ -91,7 +91,7 @@ contract BorrowerOperations is BaseNoFrame, DelegatedOps {
         minNetDebt = _minNetDebt;
     }
 
-    function enableCollateral(ITroveManager troveManager, IERC20 collateralToken) external {
+    function enableCollateral(IMarket troveManager, IERC20 collateralToken) external {
         require(msg.sender == factory(), "!factory");
         require(address(_trovesContracts[collateralToken].troveManager) == address(0), "Collateral already enabled");
         _trovesContracts[collateralToken] = TrovesContracts(troveManager, uint16(_troveManagers.length));
@@ -129,7 +129,7 @@ contract BorrowerOperations is BaseNoFrame, DelegatedOps {
             prices: new uint256[](loopEnd)
         });
         for (uint256 i; i < loopEnd; ) {
-            ITroveManager troveManager = _troveManagers[i];
+            IMarket troveManager = _troveManagers[i];
             (uint256 collateral, uint256 debt, uint256 price) = troveManager.getEntireSystemBalances();
             balances.collaterals[i] = collateral;
             balances.debts[i] = debt;
@@ -161,7 +161,7 @@ contract BorrowerOperations is BaseNoFrame, DelegatedOps {
     ) external callerOrDelegated(account) {
         require(!addressProvider.paused(), "Deposits are paused");
 
-        (ITroveManager troveManager, uint256 index) = _getTroveManagerAndIndex(collateralToken);
+        (IMarket troveManager, uint256 index) = _getTroveManagerAndIndex(collateralToken);
 
         LocalVariables_openTrove memory vars;
         bool isRecoveryMode;
@@ -307,7 +307,7 @@ contract BorrowerOperations is BaseNoFrame, DelegatedOps {
             "BorrowerOps: There must be either a collateral change or a debt change"
         );
 
-        (ITroveManager troveManager, uint256 index) = _getTroveManagerAndIndex(collateralToken);
+        (IMarket troveManager, uint256 index) = _getTroveManagerAndIndex(collateralToken);
         LocalVariables_adjustTrove memory vars;
 
         bool isRecoveryMode;
@@ -368,7 +368,7 @@ contract BorrowerOperations is BaseNoFrame, DelegatedOps {
     }
 
     function closeTrove(IERC20 collateralToken, address account) external callerOrDelegated(account) {
-        (ITroveManager troveManager, uint256 index) = _getTroveManagerAndIndex(collateralToken);
+        (IMarket troveManager, uint256 index) = _getTroveManagerAndIndex(collateralToken);
 
         uint256 price;
         bool isRecoveryMode;
@@ -394,7 +394,7 @@ contract BorrowerOperations is BaseNoFrame, DelegatedOps {
     // --- Helper functions ---
 
     function _triggerBorrowingFee(
-        ITroveManager _troveManager,
+        IMarket _troveManager,
         address _caller,
         uint256 _maxFeePercentage,
         uint256 _debtAmount
@@ -562,7 +562,7 @@ contract BorrowerOperations is BaseNoFrame, DelegatedOps {
 
     function _getTroveManagerAndIndex(
         IERC20 collateralToken
-    ) internal view returns (ITroveManager troveManager, uint256 index) {
+    ) internal view returns (IMarket troveManager, uint256 index) {
         TrovesContracts storage t = _trovesContracts[collateralToken];
         (troveManager, index) = (t.troveManager, t.index);
 

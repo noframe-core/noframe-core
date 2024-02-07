@@ -3,7 +3,7 @@
 pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import "../../core/BaseNoFrame.sol";
+import "../../core/SharedBase.sol";
 
 interface IConvexDepositToken {
     function initialize(uint256 pid) external;
@@ -13,14 +13,14 @@ interface IConvexDepositToken {
     @notice NoFrame Convex Factory
     @title Deploys clones of `ConvexDepositToken` as directed by the NoFrame DAO
  */
-contract ConvexFactory is BaseNoFrame {
+contract ConvexFactory is SharedBase {
     using Clones for address;
 
     address public depositTokenImpl;
 
     event NewDeployment(uint256 pid, address depositToken);
 
-    constructor(address _addressProvider, address _depositTokenImpl) BaseNoFrame(_addressProvider) {
+    constructor(address _addressProvider, address _depositTokenImpl) SharedBase(_addressProvider) {
         depositTokenImpl = _depositTokenImpl;
     }
 

@@ -3,7 +3,7 @@
 pragma solidity 0.8.20;
 
 import "../interfaces/IIncentiveVoting.sol";
-import "../core/BaseNoFrame.sol";
+import "../core/SharedBase.sol";
 
 
 /**
@@ -12,7 +12,7 @@ import "../core/BaseNoFrame.sol";
             which is used within `AdminVoting` and `IncentiveVoting` to vote on
             core protocol operations.
  */
-contract TokenLocker is BaseNoFrame {
+contract TokenLocker is SharedBase {
     // The maximum number of weeks that tokens may be locked for. Also determines the maximum
     // number of active locks that a single account may open. Weight is calculated as:
     // `[balance] * [weeks to unlock]`. Weights are stored as `uint40` and balances as `uint32`,
@@ -89,7 +89,7 @@ contract TokenLocker is BaseNoFrame {
     constructor(
         address _addressProvider,
         uint256 _lockToTokenRatio
-    ) BaseNoFrame(_addressProvider) {
+    ) SharedBase(_addressProvider) {
         lockToTokenRatio = _lockToTokenRatio;
     }
 

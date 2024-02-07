@@ -9,27 +9,27 @@ import "../interfaces/ISortedTroves.sol";
 import "../interfaces/ITreasury.sol";
 import "../interfaces/IPriceFeed.sol";
 import "../dependencies/PrismaMath.sol";
-import "./BaseNoFrame.sol";
+import "./SharedBase.sol";
 
 /**
     @title NoFrame Trove Manager
-    @notice Based on Liquity's `TroveManager`
-            https://github.com/liquity/dev/blob/main/packages/contracts/contracts/TroveManager.sol
+    @notice Based on Liquity's `Market`
+            https://github.com/liquity/dev/blob/main/packages/contracts/contracts/Market.sol
 
-            NoFrame's implementation is modified so that multiple `TroveManager` and `SortedTroves`
+            NoFrame's implementation is modified so that multiple `Market` and `SortedTroves`
             contracts are deployed in tandem, with each pair managing troves of a single collateral
             type.
 
             Functionality related to liquidations has been moved to `LiquidationManager`. This was
             necessary to avoid the restriction on deployed bytecode size.
  */
-contract TroveManager is BaseNoFrame {
+contract Market is SharedBase {
 
     // Minimum collateral ratio for individual troves
-    uint256 public MCR = 1100000000000000000; // 110%
+    uint256 public MCR; 
 
     // Critical system collateral ratio. If the system's total collateral ratio (TCR) falls below the CCR, Recovery Mode is triggered.
-    uint256 public CCR = 1500000000000000000; // 150%
+    uint256 public CCR; // 150%
 
     // --- Connected contract declarations ---
     IERC20 public collateralToken;
@@ -227,7 +227,7 @@ contract TroveManager is BaseNoFrame {
         _;
     }
 
-    constructor() BaseNoFrame(address(0)) {
+    constructor() SharedBase(address(0)) {
     }
 
     function initMarket(
@@ -248,7 +248,7 @@ contract TroveManager is BaseNoFrame {
             require(msg.sender == owner(), "Only owner");
         }
 
-        addressProvider = AddressProvider(_addressProvider);
+        addressProvider = Controller(_addressProvider);
 
         MCR = _mcr;
         CCR = _ccr;

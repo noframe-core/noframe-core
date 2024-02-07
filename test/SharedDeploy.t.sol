@@ -5,11 +5,11 @@ import {Test, console} from "forge-std/Test.sol";
 
 import {MockAggregator} from "src/MockAggregator.sol";
 import {MockTellor} from "src/MockTellor.sol";
-import {AddressProvider} from "src/core/AddressProvider.sol";
+import {Controller} from "src/core/Controller.sol";
 import {GasPool} from "src/core/GasPool.sol";
 import {PriceFeed} from "src/core/PriceFeed.sol";
 import {SortedTroves} from "src/core/SortedTroves.sol";
-import {TroveManager} from "src/core/TroveManager.sol";
+import {Market} from "src/core/Market.sol";
 import {Factory} from "src/core/Factory.sol";
 import {StabilityPool} from "src/core/StabilityPool.sol";
 import {Stablecoin} from "src/core/Stablecoin.sol";
@@ -30,12 +30,12 @@ abstract contract SharedDeploy is Test {
 
     MockAggregator mock_chainlink;
     MockTellor mock_tellor;
-    AddressProvider addressProvider;
+    Controller addressProvider;
     FeeReceiver fee_receiver;
     GasPool gas_pool;
     PriceFeed pricefeed;
     SortedTroves st_impl;
-    TroveManager tm_impl;
+    Market tm_impl;
     Factory factory;
     LiquidationManager liquidationManager;
     StabilityPool stabilityPool;
@@ -96,7 +96,7 @@ abstract contract SharedDeploy is Test {
 
         vm.startPrank(deployer);
 
-        addressProvider = new AddressProvider(deployer, deployer);
+        addressProvider = new Controller(deployer, deployer);
 
         mock_chainlink = new MockAggregator();
         mock_tellor = new MockTellor();
@@ -111,7 +111,7 @@ abstract contract SharedDeploy is Test {
         st_impl = new SortedTroves();
         addressProvider.setSortedTrovesImpl(address(st_impl));
 
-        tm_impl = new TroveManager();
+        tm_impl = new Market();
         addressProvider.setTroveManagerImpl(address(tm_impl));
 
         factory = new Factory(address(addressProvider));

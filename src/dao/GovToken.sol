@@ -3,14 +3,14 @@
 pragma solidity 0.8.20;
 
 import {IERC20, ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "../core/BaseNoFrame.sol";
+import "../core/SharedBase.sol";
 
 /**
     @title NoFrame Governance Token
     @notice Given as an incentive for users of the protocol. Can be locked in `TokenLocker`
             to receive lock weight, which gives governance power within the NoFrame DAO.
  */
-contract GovToken is BaseNoFrame, ERC20 {
+contract GovToken is SharedBase, ERC20 {
     // --- ERC20 Data ---
 
     string internal constant _NAME = "NoFrame Governance Token";
@@ -41,7 +41,7 @@ contract GovToken is BaseNoFrame, ERC20 {
     constructor(
         address _addressProvider,
         uint256 __totalSupply
-    ) BaseNoFrame(_addressProvider) ERC20(_NAME, _SYMBOL) {
+    ) SharedBase(_addressProvider) ERC20(_NAME, _SYMBOL) {
         bytes32 hashedName = keccak256(bytes(_NAME));
         bytes32 hashedVersion = keccak256(bytes(version));
 

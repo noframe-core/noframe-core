@@ -3,7 +3,7 @@
 pragma solidity 0.8.20;
 
 // Common interface for the Trove Manager.
-interface ITroveManager {
+interface IMarket {
     // --- Functions ---
 
     function setAddresses(
@@ -13,8 +13,8 @@ interface ITroveManager {
     ) external;
 
     function initMarket(
-        address _mcr,
-        address _ccr,
+        uint256 _mcr,
+        uint256 _ccr,
         address sortedTroves,
         address collateral,
         uint256 minuteDecayFactor,

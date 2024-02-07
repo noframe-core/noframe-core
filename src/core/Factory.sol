@@ -3,20 +3,20 @@
 pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import "../interfaces/ITroveManager.sol";
+import "../interfaces/IMarket.sol";
 import "../interfaces/IBorrowerOperations.sol";
 import "../interfaces/IStablecoin.sol";
 import "../interfaces/ISortedTroves.sol";
 import "../interfaces/IStabilityPool.sol";
 import "../interfaces/ILiquidationManager.sol";
-import "./BaseNoFrame.sol";
+import "./SharedBase.sol";
 
 /**
     @title NoFrame Trove Factory
-    @notice Deploys cloned pairs of `TroveManager` and `SortedTroves` in order to
+    @notice Deploys cloned pairs of `Market` and `SortedTroves` in order to
             add new collateral types within the system.
  */
-contract Factory is BaseNoFrame {
+contract Factory is SharedBase {
     using Clones for address;
 
     mapping(address collateral => address troveManagerImpl) public troveManagerOverrides;
@@ -36,23 +36,23 @@ contract Factory is BaseNoFrame {
 
     event NewDeployment(address collateral, address troveManager, address sortedTroves);
 
-    constructor(address _addressProvider) BaseNoFrame(_addressProvider) {
+    constructor(address _addressProvider) SharedBase(_addressProvider) {
         //
     }
 
 
     /**
-        @notice Deploy new instances of `TroveManager` and `SortedTroves`, adding
+        @notice Deploy new instances of `Market` and `SortedTroves`, adding
                 a new collateral type to the system.
         @dev After calling this function, the owner should also call `Treasury.registerReceiver`
-             to enable GOVTOKEN emissions on the newly deployed `TroveManager`
+             to enable GOVTOKEN emissions on the newly deployed `Market`
         @param collateral Collateral token to use in new deployment
         // TODO
      */
     function deployNewInstance(
         address collateral,
-        address _mcr,
-        address _ccr,
+        uint256 _mcr,
+        uint256 _ccr,
         uint256 minuteDecayFactor,
         uint256 redemptionFeeFloor,
         uint256 borrowingFeeFloor,
@@ -69,7 +69,7 @@ contract Factory is BaseNoFrame {
         sortedTroves = sortedTrovesImpl().cloneDeterministic(bytes32(bytes20(collateral)));
 
         ISortedTroves(sortedTroves).initMarket(troveManager);
-        ITroveManager(troveManager).initMarket(
+        IMarket(troveManager).initMarket(
             _mcr, 
             _ccr, 
             sortedTroves, 
@@ -91,8 +91,8 @@ contract Factory is BaseNoFrame {
         emit NewDeployment(collateral, troveManager, sortedTroves);
     }
 
-    function getTroveManager(address collateral) public view returns (ITroveManager) {
-        if (!collateralDeployed[collateral]) return ITroveManager(address(0));
-        return ITroveManager(Clones.predictDeterministicAddress(troveManagerImpl(), bytes32(bytes20(collateral))));
+    function getTroveManager(address collateral) public view returns (IMarket) {
+        if (!collateralDeployed[collateral]) return IMarket(address(0));
+        return IMarket(Clones.predictDeterministicAddress(troveManagerImpl(), bytes32(bytes20(collateral))));
     }
 }

@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.20;
 
-import "../interfaces/ITroveManager.sol";
+import "../interfaces/IMarket.sol";
 import "../interfaces/IStabilityPool.sol";
 import "../interfaces/IBorrowerOperations.sol";
 import "../interfaces/ISortedTroves.sol";
@@ -21,7 +21,7 @@ import "../interfaces/IBoostCalculator.sol";
             Other ownable NoFrame contracts inherit their ownership from this contract
             using `PrismaOwnable`.
  */
-contract AddressProvider {
+contract Controller {
 
     uint256 public MTCR = 1100000000000000000; // 110%
 
@@ -42,7 +42,7 @@ contract AddressProvider {
     address public emissionSchedule;
     address public boostCalculator;
 
-    // ROLED
+    // ROLES
     address public owner;
     address public pendingOwner;
     address public guardian;
@@ -200,7 +200,7 @@ contract AddressProvider {
                4) Disable new loans
      * @param troveManager Trove manager for the collateral
      */
-    function startCollateralSunset(ITroveManager troveManager) external onlyOwner {
+    function startCollateralSunset(IMarket troveManager) external onlyOwner {
         address collateral = troveManager.collateralToken();
         troveManager.startCollateralSunset();
         IStabilityPool(stabilityPool).startCollateralSunset(collateral);

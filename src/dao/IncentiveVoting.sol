@@ -4,7 +4,7 @@ pragma solidity 0.8.20;
 
 import "../dependencies/DelegatedOps.sol";
 import "../interfaces/ITokenLocker.sol";
-import "../core/BaseNoFrame.sol";
+import "../core/SharedBase.sol";
 
 /**
     @title NoFrame Incentive Voting
@@ -14,7 +14,7 @@ import "../core/BaseNoFrame.sol";
 
             Conceptually, incentive voting functions similarly to Curve's gauge weight voting.
  */
-contract IncentiveVoting is BaseNoFrame, DelegatedOps {
+contract IncentiveVoting is SharedBase, DelegatedOps {
     uint256 public constant MAX_POINTS = 10000; // must be less than 2**16 or things will break
     uint256 public constant MAX_LOCK_WEEKS = 52; // must be the same as `MultiLocker`
 
@@ -74,7 +74,7 @@ contract IncentiveVoting is BaseNoFrame, DelegatedOps {
     event NewVotes(address indexed account, Vote[] votes, uint256 totalPointsUsed);
     event ClearedVotes(address indexed account);
 
-    constructor(address _addressProvider) BaseNoFrame(_addressProvider) {
+    constructor(address _addressProvider) SharedBase(_addressProvider) {
         //
     }
 

@@ -5,15 +5,15 @@ pragma solidity 0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import { IERC20, ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IERC3156FlashBorrower } from "@openzeppelin/contracts/interfaces/IERC3156FlashBorrower.sol";
-import "./BaseNoFrame.sol";
+import "./SharedBase.sol";
 
 /**
     @title NoFrame Debt Token "acUSD"
-    @notice CDP minted against collateral deposits within `TroveManager`.
-            This contract has a 1:n relationship with multiple deployments of `TroveManager`,
+    @notice CDP minted against collateral deposits within `Market`.
+            This contract has a 1:n relationship with multiple deployments of `Market`,
             each of which hold one collateral type which may be used to mint this token.
  */
-contract Stablecoin is BaseNoFrame, ERC20 {
+contract Stablecoin is SharedBase, ERC20 {
     string internal constant _NAME = "noframeUSD";
     string internal constant _SYMBOL = "nfUSD";
     string public constant version = "1";
@@ -43,7 +43,7 @@ contract Stablecoin is BaseNoFrame, ERC20 {
 
     constructor(
         address _addressProvider
-    ) BaseNoFrame(_addressProvider) ERC20(_NAME, _SYMBOL) {
+    ) SharedBase(_addressProvider) ERC20(_NAME, _SYMBOL) {
         bytes32 hashedName = keccak256(bytes(_NAME));
         bytes32 hashedVersion = keccak256(bytes(version));
 
@@ -87,7 +87,7 @@ contract Stablecoin is BaseNoFrame, ERC20 {
     function burn(address _account, uint256 _amount) external {
         require(
             troveManager[msg.sender],
-            "Debt: Caller is neither BorrowerOperations nor TroveManager nor StabilityPool"
+            "Debt: Caller is neither BorrowerOperations nor Market nor StabilityPool"
         );
         _burn(_account, _amount);
     }
@@ -100,7 +100,7 @@ contract Stablecoin is BaseNoFrame, ERC20 {
     function returnFromPool(address _poolAddress, address _receiver, uint256 _amount) external {
         require(
             msg.sender == address(stabilityPool()) || troveManager[msg.sender],
-            "Debt: Caller is neither TroveManager nor StabilityPool"
+            "Debt: Caller is neither Market nor StabilityPool"
         );
         _transfer(_poolAddress, _receiver, _amount);
     }
@@ -244,7 +244,7 @@ contract Stablecoin is BaseNoFrame, ERC20 {
         );
         require(
             _recipient != address(stabilityPool()) && !troveManager[_recipient] && _recipient != address(borrowerOperations()),
-            "Debt: Cannot transfer tokens directly to the StabilityPool, TroveManager or BorrowerOps"
+            "Debt: Cannot transfer tokens directly to the StabilityPool, Market or BorrowerOps"
         );
     }
 }

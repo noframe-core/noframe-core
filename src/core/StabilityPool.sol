@@ -5,7 +5,7 @@ pragma solidity 0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../dependencies/PrismaMath.sol";
 import "../interfaces/ITreasury.sol";
-import "./BaseNoFrame.sol";
+import "./SharedBase.sol";
 
 /**
     @title NoFrame Stability Pool
@@ -15,8 +15,8 @@ import "./BaseNoFrame.sol";
             NoFrame's implementation is modified to support multiple collaterals. Deposits into
             the stability pool may be used to liquidate any supported collateral type.
  */
-contract StabilityPool is BaseNoFrame {
-    
+contract StabilityPool is SharedBase {
+
     uint128 public constant SUNSET_DURATION = 180 days;
     uint256 constant REWARD_DURATION = 1 weeks;
 
@@ -122,7 +122,7 @@ contract StabilityPool is BaseNoFrame {
 
     constructor(
         address _addressProvider
-    ) BaseNoFrame(_addressProvider) {
+    ) SharedBase(_addressProvider) {
         periodFinish = uint32(block.timestamp - 1);
     }
 

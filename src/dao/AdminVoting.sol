@@ -5,8 +5,8 @@ pragma solidity 0.8.20;
 import "@openzeppelin/contracts/utils/Address.sol";
 import "../dependencies/DelegatedOps.sol";
 import "../interfaces/ITokenLocker.sol";
-import "../interfaces/IAddressProvider.sol";
-import "../core/BaseNoFrame.sol";
+import "../interfaces/IController.sol";
+import "../core/SharedBase.sol";
 
 /**
     @title NoFrame DAO Admin Voter
@@ -14,7 +14,7 @@ import "../core/BaseNoFrame.sol";
             arbitrary function calls only after a required percentage of GOVTOKEN
             lockers have signalled in favor of performing the action.
  */
-contract AdminVoting is BaseNoFrame, DelegatedOps{
+contract AdminVoting is SharedBase, DelegatedOps{
     using Address for address;
 
     event ProposalCreated(address indexed account, Action[] payload, uint256 week, uint256 requiredWeight);
@@ -55,7 +55,7 @@ contract AdminVoting is BaseNoFrame, DelegatedOps{
         address _addressProvider,
         uint256 _minCreateProposalWeight,
         uint256 _passingPct
-    ) BaseNoFrame(_addressProvider) {
+    ) SharedBase(_addressProvider) {
         minCreateProposalWeight = _minCreateProposalWeight;
         passingPct = _passingPct;
     }
@@ -185,7 +185,7 @@ contract AdminVoting is BaseNoFrame, DelegatedOps{
             sig := mload(add(data, 0x20))
         }
         require(
-            firstAction.target != address(addressProvider) || sig != IAddressProvider.setGuardian.selector,
+            firstAction.target != address(addressProvider) || sig != IController.setGuardian.selector,
             "Guardian replacement not cancellable"
         );
         proposalData[id].processed = true;

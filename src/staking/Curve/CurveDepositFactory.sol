@@ -3,7 +3,7 @@
 pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import "../../core/BaseNoFrame.sol";
+import "../../core/SharedBase.sol";
 import "../../interfaces/ICurveProxy.sol";
 
 interface ICurveDepositToken {
@@ -14,7 +14,7 @@ interface ICurveDepositToken {
     @notice NoFrame Curve Factory
     @title Deploys clones of `CurveDepositToken` as directed by the NoFrame DAO
  */
-contract CurveFactory is BaseNoFrame {
+contract CurveFactory is SharedBase {
     using Clones for address;
 
     ICurveProxy public immutable curveProxy;
@@ -22,7 +22,7 @@ contract CurveFactory is BaseNoFrame {
 
     event NewDeployment(address gauge, address depositToken);
 
-    constructor(address _addressProvider, ICurveProxy _curveProxy, address _depositTokenImpl) BaseNoFrame(_addressProvider) {
+    constructor(address _addressProvider, ICurveProxy _curveProxy, address _depositTokenImpl) SharedBase(_addressProvider) {
         curveProxy = _curveProxy;
         depositTokenImpl = _depositTokenImpl;
     }

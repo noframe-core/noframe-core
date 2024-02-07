@@ -9,7 +9,7 @@ import "../interfaces/IIncentiveVoting.sol";
 import "../interfaces/ITokenLocker.sol";
 import "../interfaces/IBoostDelegate.sol";
 import "../interfaces/IBoostCalculator.sol";
-import "../core/BaseNoFrame.sol";
+import "../core/SharedBase.sol";
 
 interface IEmissionReceiver {
     function notifyRegisteredId(uint256[] memory assignedIds) external returns (bool);
@@ -28,7 +28,7 @@ interface IRewards {
             treasury gradually releases tokens to registered emissions receivers
             as determined by `EmissionSchedule` and `BoostCalculator`.
  */
-contract Treasury is BaseNoFrame {
+contract Treasury is SharedBase {
     using Address for address;
     using SafeERC20 for IERC20;
 
@@ -86,7 +86,7 @@ contract Treasury is BaseNoFrame {
         address _addressProvider,
         uint64 initialLockWeeks,
         uint128[] memory _fixedInitialAmounts
-    ) BaseNoFrame(_addressProvider) {
+    ) SharedBase(_addressProvider) {
 
         govToken().approve(address(tokenLocker()), type(uint256).max);
 

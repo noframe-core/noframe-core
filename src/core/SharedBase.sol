@@ -2,9 +2,9 @@
 
 pragma solidity 0.8.20;
 
-import "./AddressProvider.sol";
+import "./Controller.sol";
 
-import "../interfaces/ITroveManager.sol";
+import "../interfaces/IMarket.sol";
 import "../interfaces/IStabilityPool.sol";
 import "../interfaces/IBorrowerOperations.sol";
 import "../interfaces/IStablecoin.sol";
@@ -25,7 +25,7 @@ import "../interfaces/IBoostCalculator.sol";
     @notice Contracts inheriting `PrismaOwnable` have the same owner as `PrismaCore`.
             The ownership cannot be independently modified or renounced.
  */
-contract BaseNoFrame {
+contract SharedBase {
 
     uint256 public constant DECIMAL_PRECISION = 1e18;
     uint256 public constant _100pct = 1000000000000000000; // 1e18 == 100%
@@ -38,10 +38,10 @@ contract BaseNoFrame {
 
 
 
-    AddressProvider public addressProvider;
+    Controller public addressProvider;
 
     constructor(address _addressProvider) {
-        addressProvider = AddressProvider(_addressProvider);
+        addressProvider = Controller(_addressProvider);
     }
 
     // Returns the composite debt (drawn debt + gas compensation) of a trove, for the purpose of ICR calculation

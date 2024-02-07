@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../interfaces/IGaugeController.sol";
 import "../../interfaces/ILiquidityGauge.sol";
-import "../../core/BaseNoFrame.sol";
+import "../../core/SharedBase.sol";
 
 interface IVotingEscrow {
     function create_lock(uint256 amount, uint256 unlock_time) external;
@@ -35,7 +35,7 @@ interface IAragon {
     @notice Locks CRV in Curve's `VotingEscrow` and interacts with various Curve
             contracts that require / provide benefit from the locked CRV position.
  */
-contract CurveProxy is BaseNoFrame {
+contract CurveProxy is SharedBase {
     using Address for address;
     using SafeERC20 for IERC20;
 
@@ -85,7 +85,7 @@ contract CurveProxy is BaseNoFrame {
         IMinter _minter,
         IVotingEscrow _votingEscrow,
         IFeeDistributor _feeDistributor
-    ) BaseNoFrame(_addressProvider) {
+    ) SharedBase(_addressProvider) {
         CRV = _CRV;
         gaugeController = _gaugeController;
         minter = _minter;
