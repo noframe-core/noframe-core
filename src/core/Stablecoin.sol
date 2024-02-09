@@ -9,8 +9,8 @@ import "./SharedBase.sol";
 
 /**
     @title NoFrame Debt Token "acUSD"
-    @notice CDP minted against collateral deposits within `Market`.
-            This contract has a 1:n relationship with multiple deployments of `Market`,
+    @notice CDP minted against collateral deposits within `MarketCore`.
+            This contract has a 1:n relationship with multiple deployments of `MarketCore`,
             each of which hold one collateral type which may be used to mint this token.
  */
 contract Stablecoin is SharedBase, ERC20 {
@@ -87,7 +87,7 @@ contract Stablecoin is SharedBase, ERC20 {
     function burn(address _account, uint256 _amount) external {
         require(
             troveManager[msg.sender],
-            "Debt: Caller is neither BorrowerOperations nor Market nor StabilityPool"
+            "Debt: Caller is neither BorrowerOperations nor MarketCore nor StabilityPool"
         );
         _burn(_account, _amount);
     }
@@ -100,7 +100,7 @@ contract Stablecoin is SharedBase, ERC20 {
     function returnFromPool(address _poolAddress, address _receiver, uint256 _amount) external {
         require(
             msg.sender == address(stabilityPool()) || troveManager[msg.sender],
-            "Debt: Caller is neither Market nor StabilityPool"
+            "Debt: Caller is neither MarketCore nor StabilityPool"
         );
         _transfer(_poolAddress, _receiver, _amount);
     }
@@ -244,7 +244,7 @@ contract Stablecoin is SharedBase, ERC20 {
         );
         require(
             _recipient != address(stabilityPool()) && !troveManager[_recipient] && _recipient != address(borrowerOperations()),
-            "Debt: Cannot transfer tokens directly to the StabilityPool, Market or BorrowerOps"
+            "Debt: Cannot transfer tokens directly to the StabilityPool, MarketCore or BorrowerOps"
         );
     }
 }

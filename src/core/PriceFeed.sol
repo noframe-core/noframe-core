@@ -8,6 +8,8 @@ import "../dependencies/PrismaMath.sol";
 import "./Controller.sol";
 import "./SharedBase.sol";
 
+import {Test, console} from "forge-std/Test.sol";
+
 /**
     @title NoFrame Default Price Feed
     @notice Based on Liquity's PriceFeed:
@@ -111,7 +113,7 @@ contract PriceFeed is SharedBase {
     }
 
     /**
-        @notice Set the share price function for a specific Market
+        @notice Set the share price function for a specific MarketCore
         @param _troveManager Address of the trove manager that this share price is to be used for
         @param _collateral Address of the LST that has the share price function
         @param _signature Four byte function selector to be used when calling `_collateral`, in order
@@ -135,9 +137,9 @@ contract PriceFeed is SharedBase {
 
     /**
         @notice Get the latest price returned from the oracle
-        @dev If the caller is a `Market` with a share price function set,
+        @dev If the caller is a `MarketCore` with a share price function set,
              the oracle price is multiplied by the share price. You can obtain
-             these values by calling `Market.fetchPrice()` rather than
+             these values by calling `MarketCore.fetchPrice()` rather than
              directly interacting with this contract.
      */
     function fetchPrice() external returns (uint256 price) {

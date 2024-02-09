@@ -4,18 +4,18 @@ pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../interfaces/IStabilityPool.sol";
-import "../interfaces/ISortedTroves.sol";
+import "../interfaces/IMarketSorting.sol";
 import "../interfaces/IBorrowerOperations.sol";
-import "../interfaces/IMarket.sol";
+import "../interfaces/IMarketCore.sol";
 import "../dependencies/PrismaMath.sol";
 import "./SharedBase.sol";
 
 /**
     @title NoFrame Liquidation Manager
-    @notice Based on Liquity's `Market`
-            https://github.com/liquity/dev/blob/main/packages/contracts/contracts/Market.sol
+    @notice Based on Liquity's `MarketCore`
+            https://github.com/liquity/dev/blob/main/packages/contracts/contracts/MarketCore.sol
 
-            This contract has a 1:n relationship with `Market`, handling liquidations
+            This contract has a 1:n relationship with `MarketCore`, handling liquidations
             for every active collateral within the system.
 
             Anyone can call to liquidate an eligible trove at any time. There is no requirement
@@ -38,7 +38,7 @@ import "./SharedBase.sol";
  */
 contract LiquidationManager is SharedBase{
     
-    mapping(IERC20 => IMarket) internal _trovesContracts;
+    mapping(IERC20 => IMarketCore) internal _trovesContracts;
 
     /*
      * --- Variable container structs for liquidations ---
@@ -103,7 +103,7 @@ contract LiquidationManager is SharedBase{
 
     function enableCollateral(address _troveManager, IERC20 _collateral) external {
         require(msg.sender == address(factory()), "Not factory");
-        _trovesContracts[_collateral] = IMarket(_troveManager);
+        _trovesContracts[_collateral] = IMarketCore(_troveManager);
     }
 
     // --- Trove Liquidation functions ---
@@ -115,9 +115,9 @@ contract LiquidationManager is SharedBase{
         @param borrower Borrower address to liquidate
      */
     function liquidate(IERC20 collateral, address borrower) external {
-        IMarket troveManager = _trovesContracts[collateral];
+        IMarketCore troveManager = _trovesContracts[collateral];
 
-        require(troveManager.getTroveStatus(borrower) == 1, "Market: Trove does not exist or is closed");
+        require(troveManager.getTroveStatus(borrower) == 1, "MarketCore: Trove does not exist or is closed");
 
         address[] memory borrowers = new address[](1);
         borrowers[0] = borrower;
@@ -133,11 +133,11 @@ contract LiquidationManager is SharedBase{
                       is not in recovery mode, to minimize gas costs for this call.
      */
     function liquidateTroves(IERC20 collateral, uint256 maxTrovesToLiquidate, uint256 maxICR) external {
-        IMarket troveManager = _trovesContracts[collateral];
+        IMarketCore troveManager = _trovesContracts[collateral];
         troveManager.updateBalances();
 
         IStabilityPool stabilityPoolCached = stabilityPool();
-        ISortedTroves sortedTrovesCached = ISortedTroves(troveManager.sortedTroves());
+        IMarketSorting sortedTrovesCached = IMarketSorting(troveManager.sortedTroves());
 
         LiquidationValues memory singleLiquidation;
         LiquidationTotals memory totals;
@@ -202,7 +202,7 @@ contract LiquidationManager is SharedBase{
             }
         }
 
-        require(totals.totalDebtInSequence > 0, "Market: nothing to liquidate");
+        require(totals.totalDebtInSequence > 0, "MarketCore: nothing to liquidate");
         if (totals.totalDebtToOffset > 0 || totals.totalCollToSendToSP > 0) {
             // Move liquidated collateral and Debt to the appropriate pools
             stabilityPoolCached.offset(address(collateral), totals.totalDebtToOffset, totals.totalCollToSendToSP);
@@ -240,8 +240,8 @@ contract LiquidationManager is SharedBase{
      * Attempt to liquidate a custom list of troves provided by the caller.
      */
     function batchLiquidateTroves(IERC20 collateral, address[] memory _troveArray) public {
-        IMarket troveManager = _trovesContracts[collateral];
-        require(_troveArray.length != 0, "Market: Calldata address array must not be empty");
+        IMarketCore troveManager = _trovesContracts[collateral];
+        require(_troveArray.length != 0, "MarketCore: Calldata address array must not be empty");
         troveManager.updateBalances();
 
         LiquidationValues memory singleLiquidation;
@@ -309,7 +309,7 @@ contract LiquidationManager is SharedBase{
             }
         }
 
-        require(totals.totalDebtInSequence > 0, "Market: nothing to liquidate");
+        require(totals.totalDebtInSequence > 0, "MarketCore: nothing to liquidate");
 
         if (totals.totalDebtToOffset > 0 || totals.totalCollToSendToSP > 0) {
             // Move liquidated collateral and Debt to the appropriate pools
@@ -343,7 +343,7 @@ contract LiquidationManager is SharedBase{
              remaining debt and collateral are redistributed between active troves.
      */
     function _liquidateNormalMode(
-        IMarket troveManager,
+        IMarketCore troveManager,
         address _borrower,
         uint256 _debtInStabPool,
         bool sunsetting
@@ -395,7 +395,7 @@ contract LiquidationManager is SharedBase{
              The remainder due to the capped rate will be claimable as collateral surplus.
      */
     function _tryLiquidateWithCap(
-        IMarket troveManager,
+        IMarketCore troveManager,
         address _borrower,
         uint _ICR,
         uint256 _debtInStabPool,
@@ -457,7 +457,7 @@ contract LiquidationManager is SharedBase{
              are distributed porportionally between the remaining active troves.
      */
     function _liquidateWithoutSP(
-        IMarket troveManager,
+        IMarketCore troveManager,
         address _borrower
     ) internal returns (LiquidationValues memory singleLiquidation) {
         uint pendingDebtReward;

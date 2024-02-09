@@ -3,7 +3,7 @@
 pragma solidity 0.8.20;
 
 // Common interface for the Trove Manager.
-interface IMarket {
+interface IMarketCore {
     // --- Functions ---
 
     function setAddresses(

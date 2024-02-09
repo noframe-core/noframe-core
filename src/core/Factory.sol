@@ -3,17 +3,17 @@
 pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import "../interfaces/IMarket.sol";
+import "../interfaces/IMarketCore.sol";
 import "../interfaces/IBorrowerOperations.sol";
 import "../interfaces/IStablecoin.sol";
-import "../interfaces/ISortedTroves.sol";
+import "../interfaces/IMarketSorting.sol";
 import "../interfaces/IStabilityPool.sol";
 import "../interfaces/ILiquidationManager.sol";
 import "./SharedBase.sol";
 
 /**
     @title NoFrame Trove Factory
-    @notice Deploys cloned pairs of `Market` and `SortedTroves` in order to
+    @notice Deploys cloned pairs of `MarketCore` and `MarketSorting` in order to
             add new collateral types within the system.
  */
 contract Factory is SharedBase {
@@ -42,10 +42,10 @@ contract Factory is SharedBase {
 
 
     /**
-        @notice Deploy new instances of `Market` and `SortedTroves`, adding
+        @notice Deploy new instances of `MarketCore` and `MarketSorting`, adding
                 a new collateral type to the system.
         @dev After calling this function, the owner should also call `Treasury.registerReceiver`
-             to enable GOVTOKEN emissions on the newly deployed `Market`
+             to enable GOVTOKEN emissions on the newly deployed `MarketCore`
         @param collateral Collateral token to use in new deployment
         // TODO
      */
@@ -68,8 +68,8 @@ contract Factory is SharedBase {
         address sortedTroves;
         sortedTroves = sortedTrovesImpl().cloneDeterministic(bytes32(bytes20(collateral)));
 
-        ISortedTroves(sortedTroves).initMarket(troveManager);
-        IMarket(troveManager).initMarket(
+        IMarketSorting(sortedTroves).initMarket(troveManager);
+        IMarketCore(troveManager).initMarket(
             _mcr, 
             _ccr, 
             sortedTroves, 
@@ -91,8 +91,8 @@ contract Factory is SharedBase {
         emit NewDeployment(collateral, troveManager, sortedTroves);
     }
 
-    function getTroveManager(address collateral) public view returns (IMarket) {
-        if (!collateralDeployed[collateral]) return IMarket(address(0));
-        return IMarket(Clones.predictDeterministicAddress(troveManagerImpl(), bytes32(bytes20(collateral))));
+    function getTroveManager(address collateral) public view returns (IMarketCore) {
+        if (!collateralDeployed[collateral]) return IMarketCore(address(0));
+        return IMarketCore(Clones.predictDeterministicAddress(troveManagerImpl(), bytes32(bytes20(collateral))));
     }
 }

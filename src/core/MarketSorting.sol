@@ -2,18 +2,18 @@
 
 pragma solidity 0.8.20;
 
-import "../interfaces/IMarket.sol";
+import "../interfaces/IMarketCore.sol";
 
 /**
     @title NoFrame Sorted Troves
-    @notice Based on Liquity's `SortedTroves`:
-            https://github.com/liquity/dev/blob/main/packages/contracts/contracts/SortedTroves.sol
+    @notice Based on Liquity's `MarketSorting`:
+            https://github.com/liquity/dev/blob/main/packages/contracts/contracts/MarketSorting.sol
 
             Originally derived from `SortedDoublyLinkedList`:
             https://github.com/livepeer/protocol/blob/master/contracts/libraries/SortedDoublyLL.sol
  */
-contract SortedTroves {
-    IMarket public troveManager;
+contract MarketSorting {
+    IMarketCore public troveManager;
 
     Data public data;
 
@@ -37,7 +37,7 @@ contract SortedTroves {
 
     function initMarket(address _troveManagerAddress) external {
         require(address(troveManager) == address(0), "Already set");
-        troveManager = IMarket(_troveManagerAddress);
+        troveManager = IMarketCore(_troveManagerAddress);
     }
 
     /*
@@ -49,29 +49,29 @@ contract SortedTroves {
      */
 
     function insert(address _id, uint256 _NICR, address _prevId, address _nextId) external {
-        IMarket troveManagerCached = troveManager;
+        IMarketCore troveManagerCached = troveManager;
 
         _requireCallerIsTroveManager(troveManagerCached);
 
         Node storage node = data.nodes[_id];
         // List must not already contain node
-        require(!node.exists, "SortedTroves: List already contains the node");
+        require(!node.exists, "MarketSorting: List already contains the node");
         // Node id must not be null
-        require(_id != address(0), "SortedTroves: Id cannot be zero");
+        require(_id != address(0), "MarketSorting: Id cannot be zero");
 
         _insert(node, troveManagerCached, _id, _NICR, _prevId, _nextId);
     }
 
     function _insert(
         Node storage node,
-        IMarket _troveManager,
+        IMarketCore _troveManager,
         address _id,
         uint256 _NICR,
         address _prevId,
         address _nextId
     ) internal {
         // NICR must be non-zero
-        require(_NICR > 0, "SortedTroves: NICR must be positive");
+        require(_NICR > 0, "MarketSorting: NICR must be positive");
 
         address prevId = _prevId;
         address nextId = _nextId;
@@ -123,7 +123,7 @@ contract SortedTroves {
      */
     function _remove(Node storage node, address _id) internal {
         // List must contain the node
-        require(node.exists, "SortedTroves: List does not contain the id");
+        require(node.exists, "MarketSorting: List does not contain the id");
 
         if (data.size > 1) {
             // List contains more than a single node
@@ -170,7 +170,7 @@ contract SortedTroves {
      * @param _nextId Id of next node for the new insert position
      */
     function reInsert(address _id, uint256 _newNICR, address _prevId, address _nextId) external {
-        IMarket troveManagerCached = troveManager;
+        IMarketCore troveManagerCached = troveManager;
 
         _requireCallerIsTroveManager(troveManagerCached);
 
@@ -244,7 +244,7 @@ contract SortedTroves {
     }
 
     function _validInsertPosition(
-        IMarket _troveManager,
+        IMarketCore _troveManager,
         uint256 _NICR,
         address _prevId,
         address _nextId
@@ -269,12 +269,12 @@ contract SortedTroves {
 
     /*
      * @dev Descend the list (larger NICRs to smaller NICRs) to find a valid insert position
-     * @param _troveManager Market contract, passed in as param to save SLOAD’s
+     * @param _troveManager MarketCore contract, passed in as param to save SLOAD’s
      * @param _NICR Node's NICR
      * @param _startId Id of node to start descending the list from
      */
     function _descendList(
-        IMarket _troveManager,
+        IMarketCore _troveManager,
         uint256 _NICR,
         address _startId
     ) internal view returns (address, address) {
@@ -297,12 +297,12 @@ contract SortedTroves {
 
     /*
      * @dev Ascend the list (smaller NICRs to larger NICRs) to find a valid insert position
-     * @param _troveManager Market contract, passed in as param to save SLOAD’s
+     * @param _troveManager MarketCore contract, passed in as param to save SLOAD’s
      * @param _NICR Node's NICR
      * @param _startId Id of node to start ascending the list from
      */
     function _ascendList(
-        IMarket _troveManager,
+        IMarketCore _troveManager,
         uint256 _NICR,
         address _startId
     ) internal view returns (address, address) {
@@ -338,7 +338,7 @@ contract SortedTroves {
     }
 
     function _findInsertPosition(
-        IMarket _troveManager,
+        IMarketCore _troveManager,
         uint256 _NICR,
         address _prevId,
         address _nextId
@@ -375,7 +375,7 @@ contract SortedTroves {
         }
     }
 
-    function _requireCallerIsTroveManager(IMarket _troveManager) internal view {
-        require(msg.sender == address(_troveManager), "SortedTroves: Caller is not the Market");
+    function _requireCallerIsTroveManager(IMarketCore _troveManager) internal view {
+        require(msg.sender == address(_troveManager), "MarketSorting: Caller is not the MarketCore");
     }
 }

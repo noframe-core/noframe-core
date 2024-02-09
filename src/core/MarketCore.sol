@@ -5,37 +5,39 @@ pragma solidity 0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "../interfaces/IBorrowerOperations.sol";
-import "../interfaces/ISortedTroves.sol";
+import "../interfaces/IMarketSorting.sol";
 import "../interfaces/ITreasury.sol";
 import "../interfaces/IPriceFeed.sol";
 import "../dependencies/PrismaMath.sol";
 import "./SharedBase.sol";
 
+import {Test, console} from "forge-std/Test.sol";
+
 /**
     @title NoFrame Trove Manager
-    @notice Based on Liquity's `Market`
-            https://github.com/liquity/dev/blob/main/packages/contracts/contracts/Market.sol
+    @notice Based on Liquity's `MarketCore`
+            https://github.com/liquity/dev/blob/main/packages/contracts/contracts/MarketCore.sol
 
-            NoFrame's implementation is modified so that multiple `Market` and `SortedTroves`
+            NoFrame's implementation is modified so that multiple `MarketCore` and `MarketSorting`
             contracts are deployed in tandem, with each pair managing troves of a single collateral
             type.
 
             Functionality related to liquidations has been moved to `LiquidationManager`. This was
             necessary to avoid the restriction on deployed bytecode size.
  */
-contract Market is SharedBase {
+contract MarketCore is SharedBase {
 
     // Minimum collateral ratio for individual troves
     uint256 public MCR; 
 
     // Critical system collateral ratio. If the system's total collateral ratio (TCR) falls below the CCR, Recovery Mode is triggered.
-    uint256 public CCR; // 150%
+    uint256 public CCR; 
 
     // --- Connected contract declarations ---
     IERC20 public collateralToken;
 
     // A doubly linked list of Troves, sorted by their collateral ratios
-    ISortedTroves public sortedTroves;
+    IMarketSorting public sortedTroves;
 
     EmissionId public emissionId;
 
@@ -253,7 +255,7 @@ contract Market is SharedBase {
         MCR = _mcr;
         CCR = _ccr;
         collateralToken = IERC20(_collateralToken);
-        sortedTroves = ISortedTroves(_sortedTrovesAddress);
+        sortedTroves = IMarketSorting(_sortedTrovesAddress);
         systemDeploymentTime = block.timestamp;
         sunsetting = false;
         activeInterestIndex = INTEREST_PRECISION;
@@ -682,7 +684,7 @@ contract Market is SharedBase {
         uint256 _maxIterations,
         uint256 _maxFeePercentage
     ) external {
-        ISortedTroves _sortedTrovesCached = sortedTroves;
+        IMarketSorting _sortedTrovesCached = sortedTroves;
         RedemptionTotals memory totals;
 
         require(
@@ -765,7 +767,7 @@ contract Market is SharedBase {
 
     // Redeem as much collateral as possible from _borrower's Trove in exchange for debt up to _maxDebtAmount
     function _redeemCollateralFromTrove(
-        ISortedTroves _sortedTrovesCached,
+        IMarketSorting _sortedTrovesCached,
         address _borrower,
         uint256 _maxDebtAmount,
         uint256 _price,
@@ -843,7 +845,7 @@ contract Market is SharedBase {
     }
 
     function _isValidFirstRedemptionHint(
-        ISortedTroves _sortedTroves,
+        IMarketSorting _sortedTroves,
         address _firstRedemptionHint,
         uint256 _price
     ) internal view returns (bool) {

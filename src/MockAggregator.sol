@@ -49,8 +49,15 @@ contract MockAggregator is IAggregatorV3Interface {
     }
 
     function setPrice(int _price) external {
+        prevPrice = price;
         price = _price;
+
+        prevRoundId = latestRoundId;
         latestRoundId += 1;
+
+        prevUpdateTime = updateTime;
+        updateTime = block.timestamp;
+
     }
 
     function setPrevPrice(int _prevPrice) external {

@@ -2,10 +2,10 @@
 
 pragma solidity 0.8.20;
 
-import "../interfaces/IMarket.sol";
+import "../interfaces/IMarketCore.sol";
 import "../interfaces/IStabilityPool.sol";
 import "../interfaces/IBorrowerOperations.sol";
-import "../interfaces/ISortedTroves.sol";
+import "../interfaces/IMarketSorting.sol";
 import "../interfaces/ILiquidationManager.sol";
 import "../interfaces/IFactory.sol";
 import "../interfaces/IPriceFeed.sol";
@@ -200,7 +200,7 @@ contract Controller {
                4) Disable new loans
      * @param troveManager Trove manager for the collateral
      */
-    function startCollateralSunset(IMarket troveManager) external onlyOwner {
+    function startCollateralSunset(IMarketCore troveManager) external onlyOwner {
         address collateral = troveManager.collateralToken();
         troveManager.startCollateralSunset();
         IStabilityPool(stabilityPool).startCollateralSunset(collateral);

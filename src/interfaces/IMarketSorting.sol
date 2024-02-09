@@ -2,8 +2,8 @@
 
 pragma solidity 0.8.20;
 
-// Common interface for the SortedTroves Doubly Linked List.
-interface ISortedTroves {
+// Common interface for the MarketSorting Doubly Linked List.
+interface IMarketSorting {
     // --- Functions ---
 
     function initMarket(address _TroveManagerAddress) external;
