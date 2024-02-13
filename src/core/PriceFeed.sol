@@ -7,7 +7,7 @@ import "../interfaces/IAggregatorV3Interface.sol";
 import "../dependencies/PrismaMath.sol";
 import "./Controller.sol";
 import "./SharedBase.sol";
-import "@pendle/oracles/PendlePtOracleLib.sol";
+import "@pendle/contracts/oracles/PendlePtOracleLib.sol";
 
 import {Test, console} from "forge-std/Test.sol";
 
