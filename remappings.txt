@@ -1,2 +1,3 @@
 @openzeppelin/=lib/openzeppelin-contracts/
 @layerzerolabs/solidity-examples/=lib/solidity-examples/
+@pendle/=lib/pendle-core-v2-public/contracts/

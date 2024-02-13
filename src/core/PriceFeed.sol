@@ -7,6 +7,7 @@ import "../interfaces/IAggregatorV3Interface.sol";
 import "../dependencies/PrismaMath.sol";
 import "./Controller.sol";
 import "./SharedBase.sol";
+import "@pendle/oracles/PendlePtOracleLib.sol";
 
 import {Test, console} from "forge-std/Test.sol";
 
@@ -142,24 +143,36 @@ contract PriceFeed is SharedBase {
              these values by calling `MarketCore.fetchPrice()` rather than
              directly interacting with this contract.
      */
-    function fetchPrice() external returns (uint256 price) {
-        uint256 updated;
-        (price, updated) = (lastGoodPrice, lastUpdated);
-        if (updated < block.timestamp) {
-            price = _fetchPrice(price);
+    function fetchPrice() external returns (uint256 priceFinal) {
+
+        uint256 priceFinal;
+        uint256 price0; // chainlink & tellor (centralized)
+        uint256 price1; // price per share, if token can return it
+        uint256 price2; // Pendle PT price
+
+        // CHAINLINK & TELLOR
+        if (lastUpdated < block.timestamp) {
             lastUpdated = uint32(block.timestamp);
+            price0 = _updateChainlinkOrTellorPrice(lastGoodPrice);
+            priceFinal = price0;
         }
 
+        // PRICE PER SHARE, MULTIPLE/DISCOUNT TO COLLATERAL
         SharePriceData memory sp = sharePrices[msg.sender];
         if (sp.collateral != address(0)) {
             (bool success, bytes memory returnData) = sp.collateral.call(abi.encode(sp.signature));
             require(success);
-            price = (price * abi.decode(returnData, (uint256))) / (10 ** sp.decimals);
+            price1 = abi.decode(returnData, (uint256));
+            priceFinal = (price0 * price1) / (10 ** sp.decimals);
         }
-        return price;
+        return priceFinal;
     }
 
-    function _fetchPrice(uint256 lastPrice) internal returns (uint256 price) {
+    function pendlePrice() public returns (uint256) {
+
+    }
+
+    function _updateChainlinkOrTellorPrice(uint256 lastPrice) internal returns (uint256 price) {
         Status _status = status;
         // Get current and previous price data from Chainlink, and current price data from Tellor
         ChainlinkResponse memory chainlinkResponse = _getCurrentChainlinkResponse();
