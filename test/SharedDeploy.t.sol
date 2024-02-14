@@ -3,11 +3,9 @@ pragma solidity ^0.8.20;
 
 import {Test, console} from "forge-std/Test.sol";
 
-import {MockAggregator} from "src/MockAggregator.sol";
-import {MockTellor} from "src/MockTellor.sol";
 import {Controller} from "src/core/Controller.sol";
 import {GasPool} from "src/core/GasPool.sol";
-import {PriceFeed} from "src/core/PriceFeed.sol";
+import {OracleRouter} from "src/core/OracleRouter.sol";
 import {MarketSorting} from "src/core/MarketSorting.sol";
 import {MarketCore} from "src/core/MarketCore.sol";
 import {Factory} from "src/core/Factory.sol";
@@ -28,12 +26,10 @@ abstract contract SharedDeploy is Test {
 
     address deployer = address(bytes20(bytes("deployer")));
 
-    MockAggregator mock_chainlink;
-    MockTellor mock_tellor;
     Controller addressProvider;
     FeeReceiver fee_receiver;
     GasPool gas_pool;
-    PriceFeed pricefeed;
+    OracleRouter oracleRouter;
     MarketSorting st_impl;
     MarketCore tm_impl;
     Factory factory;
@@ -65,7 +61,7 @@ abstract contract SharedDeploy is Test {
         uint64 emissionLockDecayRate = 2;
         uint64 emissionWeeklyPct = 100;
 
-        // weeks of automatic max-boost (TODO reduce to test boost)
+        // weeks of automatic max-boost
         uint256 graceWeeks = 10;
 
         // dao
@@ -98,10 +94,8 @@ abstract contract SharedDeploy is Test {
 
         addressProvider = new Controller(deployer, deployer);
 
-        mock_chainlink = new MockAggregator();
-        mock_tellor = new MockTellor();
-        pricefeed = new PriceFeed(address(addressProvider), address(mock_chainlink), address(mock_tellor));
-        addressProvider.setPriceFeed(address(pricefeed));
+        oracleRouter = new OracleRouter(address(addressProvider));
+        addressProvider.setOracleRouter(address(oracleRouter));
 
         gas_pool = new GasPool();
         addressProvider.setGasPool(address(gas_pool));
@@ -157,11 +151,6 @@ abstract contract SharedDeploy is Test {
         adminVoting.acceptTransferOwnership();
 
         vm.stopPrank();
-
-
-
-        
-        
 
     }
 

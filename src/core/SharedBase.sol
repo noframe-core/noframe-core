@@ -11,7 +11,7 @@ import "../interfaces/IStablecoin.sol";
 import "../interfaces/IMarketSorting.sol";
 import "../interfaces/ILiquidationManager.sol";
 import "../interfaces/IFactory.sol";
-import "../interfaces/IPriceFeed.sol";
+import "../interfaces/IOracleRouter.sol";
 import "../interfaces/ITreasury.sol";
 import "../interfaces/IGovToken.sol";
 import "../interfaces/IIncentiveVoting.sol";
@@ -105,8 +105,8 @@ contract SharedBase {
     function liquidationManager() public view returns (ILiquidationManager) {
         return ILiquidationManager(addressProvider.liquidationManager());
     }
-    function priceFeed() public view returns (address) {
-        return addressProvider.priceFeed();
+    function oracleRouter() public view returns (IOracleRouter) {
+        return IOracleRouter(addressProvider.oracleRouter());
     }
     function stabilityPool() public view returns (IStabilityPool) {
         return IStabilityPool(addressProvider.stabilityPool());

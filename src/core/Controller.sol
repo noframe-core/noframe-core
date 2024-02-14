@@ -8,7 +8,7 @@ import "../interfaces/IBorrowerOperations.sol";
 import "../interfaces/IMarketSorting.sol";
 import "../interfaces/ILiquidationManager.sol";
 import "../interfaces/IFactory.sol";
-import "../interfaces/IPriceFeed.sol";
+import "../interfaces/IOracleRouter.sol";
 import "../interfaces/IIncentiveVoting.sol";
 import "../interfaces/ITokenLocker.sol";
 import "../interfaces/IBoostCalculator.sol";
@@ -31,7 +31,7 @@ contract Controller {
     address public factory;
     address public gasPool;
     address public liquidationManager;
-    address public priceFeed;
+    address public oracleRouter;
     address public stabilityPool;
     address public sortedTrovesImpl;
     address public troveManagerImpl;
@@ -107,12 +107,12 @@ contract Controller {
     }
     /**
      * @notice Set the price feed used in the protocol
-     * @param _priceFeed Price feed address
+     * @param _oracleRouter Oracle router
      */
-    function setPriceFeed(address _priceFeed) external onlyOwner {
-        require(priceFeed == address(0), "Setting only once");
-        priceFeed = _priceFeed;
-        emit PriceFeedSet(_priceFeed);
+    function setOracleRouter(address _oracleRouter) external onlyOwner {
+        require(oracleRouter == address(0), "Setting only once");
+        oracleRouter = _oracleRouter;
+        emit PriceFeedSet(_oracleRouter);
     }
     function setStabilityPool(address _stabilityPool) external onlyOwner {
         require(stabilityPool == address(0), "Setting only once");

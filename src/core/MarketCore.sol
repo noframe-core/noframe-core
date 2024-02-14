@@ -7,7 +7,8 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "../interfaces/IBorrowerOperations.sol";
 import "../interfaces/IMarketSorting.sol";
 import "../interfaces/ITreasury.sol";
-import "../interfaces/IPriceFeed.sol";
+import "../interfaces/IOracleRouter.sol";
+import "../interfaces/IOracle.sol";
 import "../dependencies/PrismaMath.sol";
 import "./SharedBase.sol";
 
@@ -391,11 +392,8 @@ contract MarketCore is SharedBase {
     // --- Getters ---
 
     function fetchPrice() public returns (uint256) {
-        IPriceFeed _priceFeed = IPriceFeed(priceFeed());
-        if (address(_priceFeed) == address(0)) {
-            _priceFeed = IPriceFeed(priceFeed());
-        }
-        return _priceFeed.fetchPrice();
+        IOracle oracle = IOracle(oracleRouter().oracleFor(address(collateralToken), address(this)));
+        return oracle.price();
     }
 
     function getWeekAndDay() public view returns (uint256, uint256) {
